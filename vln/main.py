@@ -54,8 +54,10 @@ def main(opts):
         image_features = load_features(opts.img_feat_dir, features_name=opts.config.use_image_features)
 
     if opts.test:
+        print('if opts.test: == tRUE')
         main_test(opts, image_features, tokenizer)
     else:
+        print('if opts.test: == False')
         main_train(opts, image_features, tokenizer)
 
 
@@ -64,7 +66,10 @@ def main_train(opts, image_features, tokenizer):
     val_tcs_from_spd = list()
     test_tcs_from_spd = list()
     best_epochs_from_spd = list()
+
+    print ('Start training')
     for i in range(iterations):
+        print('Iteration : ', i )
         setup_seed(seed + i)
         opts.iteration = i + 1
 
@@ -86,6 +91,8 @@ def main_train(opts, image_features, tokenizer):
         print('TEST avg', round(np.mean(test_tcs_from_spd), 1), round(np.std(test_tcs_from_spd), 2))
         print('')
 
+
+    print('Just got out of the loop in main_train')
     # evaluations
     opts.resume = 'SPD_best'
 
@@ -173,6 +180,8 @@ def test(opts, image_features, tokenizer):
 
 
 def train(opts, image_features, tokenizer):
+
+    print('Start of train function')
     log_dir = os.path.join(opts.output_dir, 'tensorboard', 'iter{}'.format(opts.iteration))
     tb_logger = set_tb_logger(log_dir, opts.resume)
     best_SPD, best_TC = float("inf"), 0.0
@@ -182,10 +191,14 @@ def train(opts, image_features, tokenizer):
 
     val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['dev'], tokenizer=tokenizer, name="eval")
 
+    print('Start of the loop in train function')
     for epoch in range(opts.start_epoch, opts.config.max_num_epochs + 1):
+
+        print('Epoch: ', epoch)
         trainer.train(epoch, train_env, tb_logger)
         if epoch % opts.eval_every_epochs == 0:
 
+            print('if epoc'+ '%'+'opts.eval_every_epochs == 0: == true')
             val_metrics = trainer.eval_(epoch, val_seen_env, tb_logger=tb_logger)
             TC = val_metrics['TC']
             SPD = val_metrics['SPD']
@@ -197,12 +210,16 @@ def train(opts, image_features, tokenizer):
             ckpt = ({
                 'SPD': SPD,
                 'TC': TC,
-                'config': opts.config,
+                'opts': opts, #modified by me 
                 'epoch': epoch + 1,
                 'model_state_dict': trainer.agent.model.state_dict(),
                 'instr_encoder_state_dict': trainer.agent.instr_encoder.state_dict()
             })
             save_checkpoint(ckpt, is_best_SPD, epoch=epoch)
+            print('Right after Saved checkpoint function')
+        
+        print('if epoc'+ '%'+'opts.eval_every_epochs == 0: == true')
+
 
     print("--> Finished training")
 

@@ -26,7 +26,7 @@ class ORAR(nn.Module):
             img_feature_flatten_size = img_feature_shape[0] * img_feature_shape[1]
 
             if img_feature_flatten_size > 2000:
-                img_lstm_input_size = 256
+                img_lstm_input_size = 2569
                 self.linear_img = nn.Linear(img_feature_flatten_size, 512)
                 self.img_dropout = nn.Dropout(p=self.dropout)
                 self.linear_img_extra = nn.Linear(512, img_lstm_input_size)
@@ -152,6 +152,7 @@ class ORAR(nn.Module):
             if self.opts.config.use_text_attention:
                 image_attn = self._visual_attention(text_attn, image_features)  # [1, batch_size, 256]
             else:
+                #! pas vraiment besoin
                 image_attn = self._visual_attention(trajectory_hidden_state, image_features)  # [1, batch_size, 256]
             rnn2_input.append(image_attn.squeeze(0))  # [batch_size, 256]
 

@@ -23,8 +23,9 @@ def render_streetview_image():
 
     pano_dir = 'panos'
     slices_dir = 'slices'
-    pano_id = 'zZQunI0Pn9wxHNdDb6ujFg'
+    pano_id = '9ng-NTSv92Kpm6Xu93z-mw'
     pano_path = os.path.join(pano_dir, pano_id + '.jpg')
+    print("pano_path", pano_path)
 
     equ = Equirectangular(pano_path)
     h_stride = 45
@@ -40,7 +41,7 @@ def render_streetview_image():
         image_path = os.path.join(slices_dir, image_name)
         cv2.imwrite(image_path, img)
 
-
+# Transform 360 images into a normal perspective image
 class Equirectangular:
     # https://github.com/fuenwang/Equirec2Perspec/blob/master/Equirec2Perspec.py
     def __init__(self, img_name):
@@ -78,7 +79,7 @@ class Equirectangular:
         y_map = np.tile((np.arange(0, width) - c_x) * w_interval, [height, 1])
         z_map = -np.tile((np.arange(0, height) - c_y) * h_interval, [width, 1]).T
         D = np.sqrt(x_map ** 2 + y_map ** 2 + z_map ** 2)
-        xyz = np.zeros([height, width, 3], np.float)
+        xyz = np.zeros([height, width, 3], float)
         xyz[:, :, 0] = (RADIUS / D * x_map)[:, :]
         xyz[:, :, 1] = (RADIUS / D * y_map)[:, :]
         xyz[:, :, 2] = (RADIUS / D * z_map)[:, :]
@@ -92,13 +93,13 @@ class Equirectangular:
         xyz = np.dot(R1, xyz)
         xyz = np.dot(R2, xyz).T
         lat = np.arcsin(xyz[:, 2] / RADIUS)
-        lon = np.zeros([height * width], np.float)
+        lon = np.zeros([height * width], float)
         theta = np.arctan(xyz[:, 1] / xyz[:, 0])
         idx1 = xyz[:, 0] > 0
         idx2 = xyz[:, 1] > 0
 
-        idx3 = ((1 - idx1) * idx2).astype(np.bool)
-        idx4 = ((1 - idx1) * (1 - idx2)).astype(np.bool)
+        idx3 = ((1 - idx1) * idx2).astype(np.bool_)
+        idx4 = ((1 - idx1) * (1 - idx2)).astype(np.bool_)
 
         lon[idx1] = theta[idx1]
         lon[idx3] = theta[idx3] + np.pi

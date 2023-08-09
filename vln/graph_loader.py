@@ -1,7 +1,7 @@
 import os
 
 class Node:
-    def __init__(self, panoid, pano_yaw_angle, lat, lng):
+    def __init__(self, panoid, pano_yaw_angle, lat=0, lng=0):
         self.panoid = panoid
         self.pano_yaw_angle = pano_yaw_angle
         self.neighbors = {}
@@ -12,7 +12,7 @@ class Graph:
     def __init__(self):
         self.nodes = {}
         
-    def add_node(self, panoid, pano_yaw_angle, lat, lng):
+    def add_node(self, panoid, pano_yaw_angle, lat=0, lng=0):
         self.nodes[panoid] = Node(panoid, pano_yaw_angle, lat, lng)
 
     def add_edge(self, start_panoid, end_panoid, heading):

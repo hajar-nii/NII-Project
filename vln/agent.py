@@ -52,7 +52,7 @@ class OutdoorVlnAgent(BaseAgent):
         h_t = first_ht
         c_t = first_ct
 
-        ended = np.zeros(batch_size, dtype=np.bool)
+        ended = np.zeros(batch_size, dtype=np.bool_)
         ended = torch.from_numpy(ended).to(self.device)
         h2_t = None
         c2_t = None

@@ -10,12 +10,14 @@ from torch.autograd import Variable
 
 from cut_panos import get_slices
 from graph_loader import GraphLoader
+from graph_loader import get_scans
 
 
-panos_dir = './panos'
+panos_source_dir = './panos'
 output_dir = './output'
 #panos_dir = 'panos/jpegs_manhattan_touchdown'
-graph = GraphLoader('./dataset').construct_graph()
+scans_list , _, _ = get_scans()
+graph_list = GraphLoader('./dataset').construct_graph_list()
 
 os.makedirs(output_dir, exist_ok=True)
 panoid_finished = set([f[:-4] for f in os.listdir(output_dir)])
@@ -34,7 +36,7 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 to_tensor = transforms.ToTensor()
 
 def roll_img(image_feature, panoid, heading):
-    shift_angle = graph.nodes[panoid].pano_yaw_angle - heading
+    shift_angle = graph_list.nodes[panoid].pano_yaw_angle - heading
     width = image_feature.shape[1]
     shift = int(width * shift_angle / 360)
     image_feature = np.roll(image_feature, shift, axis=1)  # like 'abcd' -> 'bcda'
@@ -43,9 +45,9 @@ def roll_img(image_feature, panoid, heading):
 
 all_pano_heading_features = dict()
 n_processed = 0
-for i, (panoid, node) in enumerate(sorted(graph.nodes.items())):
+for i, (panoid, node) in enumerate(sorted(graph_list.nodes.items())):
 
-    pano_filepath = os.path.join(panos_dir, panoid + '.jpg')
+    pano_filepath = os.path.join(panos_source_dir, panoid + '.jpg')
     if not os.path.isfile(pano_filepath):
         continue
 
@@ -81,9 +83,9 @@ for i, (panoid, node) in enumerate(sorted(graph.nodes.items())):
     all_pano_heading_features[panoid] = features_heading
 
     n_processed += 1
-    print(n_processed, 'of', len(graph.nodes))
+    print(n_processed, 'of', len(graph_list.nodes))
 
 with open(os.path.join(output_dir, 'resnet_fourth_layer.pickle'), 'wb') as f:
     pickle.dump(all_pano_heading_features, f)
 
-assert n_processed == len(graph.nodes)
+assert n_processed == len(graph_list.nodes)
