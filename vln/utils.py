@@ -210,3 +210,7 @@ def save_checkpoint(state, is_best_SPD, epoch=-1):
     if is_best_SPD:
         best_filename = os.path.join(weights_dir, 'ckpt_model_SPD_best.{}.pth.tar'.format(opts.iteration))
         shutil.copyfile(filename, best_filename)
+
+
+if __name__ == "__main__":
+    # load_tokenizer(opts)
