@@ -17,7 +17,7 @@ panos_source_dir = './panos'
 output_dir = './output'
 #panos_dir = 'panos/jpegs_manhattan_touchdown'
 scans_list , _, _ = get_scans()
-graph_list = GraphLoader('./dataset').construct_graph_list()
+graph_list = GraphLoader('./dataset').construct_graphs()
 
 os.makedirs(output_dir, exist_ok=True)
 panoid_finished = set([f[:-4] for f in os.listdir(output_dir)])
@@ -35,57 +35,66 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
 to_tensor = transforms.ToTensor()
 
-def roll_img(image_feature, panoid, heading):
-    shift_angle = graph_list.nodes[panoid].pano_yaw_angle - heading
+def roll_img(graph_index, image_feature, panoid, heading):
+    shift_angle = graph_list[graph_index].nodes[panoid].pano_yaw_angle - heading
     width = image_feature.shape[1]
     shift = int(width * shift_angle / 360)
     image_feature = np.roll(image_feature, shift, axis=1)  # like 'abcd' -> 'bcda'
     return image_feature
 
 
-all_pano_heading_features = dict()
-n_processed = 0
-for i, (panoid, node) in enumerate(sorted(graph_list.nodes.items())):
+# all_pano_heading_features = dict()
+all_pano_heading_features_list = []
 
-    pano_filepath = os.path.join(panos_source_dir, panoid + '.jpg')
-    if not os.path.isfile(pano_filepath):
-        continue
+for j, scan in enumerate(scans_list):
+    n_processed = 0
+    all_pano_heading_features = dict()
 
-    slices = list()
-    for slice in get_slices(pano_filepath):
-        slice = normalize(to_tensor(slice))
-        slices.append(slice)
+    for i, (panoid, node) in enumerate(sorted(graph_list[j].nodes.items())):
 
-    batch = Variable(torch.stack(slices, dim=0))
-    print(batch.shape)
-    output = newmodel(batch)
-    print(output.shape)
+        pano_filepath = os.path.join(panos_source_dir, scan, 'pano_skybox_color',  panoid + '.jpg')
+        if not os.path.isfile(pano_filepath):
+            continue
 
-    features = torch.cat(list(output), dim=-2)
-    #print(features.shape)
-    features = torch.mean(features, dim=0)
-    #print(features.shape)
-    features = features.detach().numpy()
-    print(features.shape)
+        slices = list()
+        for slice in get_slices(pano_filepath):
+            slice = normalize(to_tensor(slice))
+            slices.append(slice)
+
+        batch = Variable(torch.stack(slices, dim=0))
+        print(batch.shape)
+        output = newmodel(batch)
+        print(output.shape)
+
+        features = torch.cat(list(output), dim=-2)
+        #print(features.shape)
+        features = torch.mean(features, dim=0)
+        #print(features.shape)
+        features = features.detach().numpy()
+        print(features.shape)
 
 
-    headings = list(node.neighbors.keys()) + [0]
+        headings = list(node.neighbors.keys()) + [0]
 
-    features_heading = dict()
+        features_heading = dict()
 
-    for heading in headings:
-        image_feature = roll_img(features.copy(), panoid, heading)
-        image_feature = image_feature[182:282, :]
-        features_heading[heading] = image_feature
-        print(image_feature.shape)
-        assert image_feature.shape == (100, 100)
+        for heading in headings:
+            image_feature = roll_img(j,features.copy(), panoid, heading)
+            image_feature = image_feature[182:282, :]
+            features_heading[heading] = image_feature
+            print(image_feature.shape)
+            assert image_feature.shape == (100, 100)
 
-    all_pano_heading_features[panoid] = features_heading
+        all_pano_heading_features[panoid] = features_heading
+        all_pano_heading_features_list.append(features_heading)
 
-    n_processed += 1
-    print(n_processed, 'of', len(graph_list.nodes))
+        n_processed += 1
+        print(n_processed, 'of', len(graph_list[j].nodes))
 
-with open(os.path.join(output_dir, 'resnet_fourth_layer.pickle'), 'wb') as f:
-    pickle.dump(all_pano_heading_features, f)
 
-assert n_processed == len(graph_list.nodes)
+    with open(os.path.join(output_dir, scan +'_resnet_fourth_layer.pickle'), 'wb') as f:
+        pickle.dump(all_pano_heading_features_list[j], f)
+    #
+    # pickle.dump(all_pano_heading_features, f)
+
+    assert n_processed == len(graph_list[j].nodes)
