@@ -86,6 +86,13 @@ def get_config(config_file, oracle):
 
     return config
 
+def get_scans():
+    with open('datasets/r2r/scans.txt') as f: # works fine 
+        scans = [scan.strip() for scan in f.readlines()]
+        print ("scans :", scans)
+        print(len(scans))
+    return scans
+
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -115,7 +122,7 @@ def load_datasets(splits, opts=None):
         with open('%s/data/%s.json' % (opts.dataset_dir, split)) as f:
             for line in f:
                 item = dict(json.loads(line))
-                item["navigation_text"] = item["navigation_text"].lower()
+                item["instructions"] = item["instructions"].lower() #! modified
                 data.append(item)
     return data
     
@@ -133,12 +140,17 @@ def set_tb_logger(log_dir, resume):
 
 
 def load_nav_graph(opts):
-    with open("%s/graph/links.txt" % opts.dataset_dir) as f:
-        G = nx.Graph()
-        for line in f:
-            pano_1, _, pano_2 = line.strip().split(",")
-            G.add_edge(pano_1, pano_2)        
-    return G
+    scans = get_scans()
+    graphs = []
+    for scan in scans:
+        with open("datasets/r2r/graph/links_orar/%slinks.txt" % scan) as f: #! hard coded the path since we just want r2r
+            G = nx.Graph()
+            for line in f:
+                pano_1, _, pano_2 = line.strip().split(",")
+                G.add_edge(pano_1, pano_2)     
+            print ("G :\n", G) 
+            graphs.append(G)
+    return graphs
     
     
 class AverageMeter:
@@ -158,7 +170,7 @@ class AverageMeter:
         self.count += n
         self.avg = self.sum / self.count
 
-
+#TODO: CHECK LATER if here are any problems
 def resume_training(opts, model, instr_encoder):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if opts.resume == 'latest':
@@ -213,4 +225,5 @@ def save_checkpoint(state, is_best_SPD, epoch=-1):
 
 
 if __name__ == "__main__":
+    scans = get_scans()
     # load_tokenizer(opts)

@@ -4,13 +4,16 @@ from graph_loader import GraphLoader
 class BaseNavigator:
     graph = None
 
-    def __init__(self, dataset_dir):
-        if BaseNavigator.graph is None:
-            BaseNavigator.graph = GraphLoader(dataset_dir).construct_graph()
+    def __init__(self, dataset_dir, scan_id):
+        if BaseNavigator.graphs is None:
+            # BaseNavigator.graphs = GraphLoader(dataset_dir).construct_graphs() #! list of graphs
+            BaseNavigator.graph = GraphLoader(dataset_dir).construct_single_graph(scan_id) 
 
         self.graph_state = None
         self.prev_graph_state = None
         self.initial_pano_id = None
+        self.scan_id = scan_id
+     
 
     def navigate(self):
         raise NotImplementedError
@@ -32,11 +35,13 @@ class BaseNavigator:
 
         return a / 180 # scale to -1 and 1
 
-    def step(self, go_towards):
+    def step(self,  go_towards):
         '''
         Execute one step and update the state. 
         go_towards: ['forward', 'left', 'right']
         '''
+
+        
         if not self.prev_graph_state:
             self.prev_graph_state = self.graph_state
         if go_towards == "stop":

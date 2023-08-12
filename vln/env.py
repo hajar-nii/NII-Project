@@ -9,16 +9,16 @@ import torch
 from pyxdameraulevenshtein import damerau_levenshtein_distance as edit_dis
 
 from base_navigator import BaseNavigator
-from utils import load_datasets, load_nav_graph
+from utils import load_datasets, load_nav_graph, get_scans
 
 _SUCCESS_THRESHOLD = 2
 
 
-def load_features(features_dir, features_name):
+def load_features_scan(features_dir, features_name, scan_id):
     print("=================================")
-    print("=====Loading image features======")
+    print("=====Loading image features for scan %s ======" % scan_id)
     assert type(features_name) == str
-    feature_file = os.path.join(features_dir, features_name + '.pickle')
+    feature_file = os.path.join(features_dir, str(scan_id) + '_'+ features_name + '.pickle')
     print('feature_file', feature_file)
     if os.path.isfile(feature_file):
         with open(feature_file, 'rb') as f:
@@ -33,6 +33,16 @@ def load_features(features_dir, features_name):
     features['feature_shape'] = feature_shape
     return features
 
+def load_features (features_dir, features_name):
+    features_list = []
+    scans = get_scans()
+    for scan in scans:
+        features = load_features_scan(features_dir, features_name, scan)
+        features_list.append(features)
+    return features_list
+
+
+
 
 class EnvBatch:
     def __init__(self, opts, image_features, batch_size=64, name=None, tokenizer=None):
@@ -41,11 +51,15 @@ class EnvBatch:
         self.name = name
         self.image_features = image_features
         self.tokenizer = tokenizer
+        self.scans = get_scans()
+        self.batch_scans = []
 
         self.navs = []
         print("=====Initializing %s navigators=====" % self.name)
         for i in range(batch_size):  # tqdm(range(batch_size)):
-            nav = BaseNavigator(self.opts.dataset_dir)
+            rand_scan = random.randint(0, 89)
+            self.batch_scans.append(self.scans[rand_scan])
+            nav = BaseNavigator(self.opts.dataset_dir, self.scans[rand_scan])
             self.navs.append(nav)
         print("=====================================")
 
@@ -60,7 +74,7 @@ class EnvBatch:
         for i in range(batch_size):
             nav = self.navs[i]
             pano, heading = nav.graph_state
-            image_feature = self.image_features[pano][heading]
+            image_feature = self.image_features[nav.scan_id][pano][heading] #! for the actual scan
             imgs.append(image_feature)
         imgs = np.array(imgs, dtype=np.float32)
         if self.opts.config.use_image_features == 'resnet_fourth_layer':
@@ -253,7 +267,7 @@ class EnvBatch:
         heading_changes = np.asarray(heading_changes, dtype=np.float32)
         return torch.from_numpy(heading_changes).to(self.device)
 
-
+#TODO: VERIFY THAT THERE IS NO NEED TO CHANGE THIS
 class OutdoorVlnBatch:
     def __init__(self, opts, image_features, batch_size=64, splits=["train"], tokenizer=None, name=None, sample_bpe=False):
         self.env = EnvBatch(opts, image_features, batch_size, name, tokenizer)
@@ -275,7 +289,7 @@ class OutdoorVlnBatch:
         data = []
         tokenizer = self.tokenizer
         for i, item in enumerate(self.json_data):
-            instr = item["navigation_text"]
+            instr = item["instructions"]
             if self.sample_bpe:
                 _encoder_input = tokenizer.encode(instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
             else:
