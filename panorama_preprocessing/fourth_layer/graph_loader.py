@@ -76,4 +76,9 @@ class GraphLoader:
 if __name__ == '__main__':
     # get_scans()
     graph_loader = GraphLoader(dataset_dir)
-    graph_loader.construct_graphs()
+    graph_list = graph_loader.construct_graphs()
+    for item in graph_list[33].nodes.values():
+        for key, value in item.neighbors.items():
+            print ("key is :", key)
+            print ("value is :", value)
+        # print ("item is \n:", item)

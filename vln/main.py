@@ -15,14 +15,14 @@ from model import ORAR
 
 parser = argparse.ArgumentParser(description='PyTorch for Outdoor VLN on Touchdown and map2seq')
 parser.add_argument('--config', default=None, type=str, help='Path to config file')
-parser.add_argument('--dataset', default='touchdown_seen', type=str, choices=['touchdown_seen', 'touchdown_unseen', 'map2seq_seen', 'map2seq_unseen', 'merged_seen', 'merged_unseen'])
+parser.add_argument('--dataset', default='r2r', type=str, choices=['touchdown_seen', 'r2r', 'map2seq_seen', 'map2seq_unseen'])
 parser.add_argument('--img_feat_dir', default='', type=str, help='Path to pre-cached image features dir.')
 parser.add_argument('--resume', default='', type=str, choices=['latest', 'TC_best', 'SPD_best'])
 parser.add_argument('--store_ckpt_every_epoch', default=False, type=bool)
 parser.add_argument('--test', default=False, type=bool, help='No training. Resume from a model and run testing.')
 parser.add_argument('--oracle', default='', type=str, help='e.g.: "rs". r=orientation; i=intersections;s=stop')
 parser.add_argument('--seed', default=1234, type=int, help='random seed')
-parser.add_argument('--batch_size', default=64, type=int)
+parser.add_argument('--batch_size', default=3, type=int)
 parser.add_argument('--eval_every_epochs', default=1, type=int, help='How often do we eval the trained model.')
 parser.add_argument('--CLS', default=False, type=bool, help='Calculate CLS when evaluating.')
 parser.add_argument('--DTW', default=False, type=bool, help='calculate DTW when evaluating.')
@@ -189,7 +189,7 @@ def train(opts, image_features, tokenizer):
     train_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['train'], tokenizer=tokenizer, name="train", sample_bpe=opts.config.do_sample_bpe)
     trainer = _load_trainer(opts, train_env, image_features, num_words=len(tokenizer))
 
-    val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['dev'], tokenizer=tokenizer, name="eval")
+    val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_seen'], tokenizer=tokenizer, name="val_seen")
 
     print('Start of the loop in train function')
     for epoch in range(opts.start_epoch, opts.config.max_num_epochs + 1):

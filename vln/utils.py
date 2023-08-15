@@ -2,6 +2,7 @@ import json
 import os
 import random
 import shutil
+import math
 
 import torch
 import yaml
@@ -89,10 +90,13 @@ def get_config(config_file, oracle):
 def get_scans():
     with open('datasets/r2r/scans.txt') as f: # works fine 
         scans = [scan.strip() for scan in f.readlines()]
-        print ("scans :", scans)
+        # print ("scans :", scans)
         print(len(scans))
     return scans
 
+def get_scan_index(scan):
+    scans= get_scans()
+    return scans.index(scan)
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -103,7 +107,7 @@ def setup_seed(seed):
 
 
 def load_tokenizer(opts):
-    model_file = "{}/vocab/{}_2000.model".format(opts.dataset_dir, opts.dataset)
+    model_file = "{}/vocab/{}_vocab_2000.model".format(opts.dataset_dir, opts.dataset)
     print(model_file)
     if not os.path.isfile(model_file):
         print('Could not find vocab with 2000, looking for 3000')
@@ -118,14 +122,57 @@ def load_tokenizer(opts):
 def load_datasets(splits, opts=None):
     data = []
     for split in splits:
-        assert split in ['train', 'test', 'dev']
+        assert split in ["train", "test", "val_seen", "val_unseen"]
         with open('%s/data/%s.json' % (opts.dataset_dir, split)) as f:
-            for line in f:
-                item = dict(json.loads(line))
-                item["instructions"] = item["instructions"].lower() #! modified
+            # for line in f:
+                # print('for line in f: \n')
+                # print(type(line) )
+                # item = dict(json.loads(line))
+            data_list = json.loads(f.read())
+            # print (data)
+            for item in data_list: #! item is a dict
+                # print (item)
+                # print ('\n')
+                # print (type(item))
+                
+                item["heading"] = (item["heading"] *180.0) / math.pi
+                for instruction in item["instructions"]:
+                    all_instructions = ""
+                    instruction = instruction.lower() #! modified
+                    all_instructions += instruction
+                    item.update(instructions= all_instructions)
                 data.append(item)
+                # print (item['instructions'])
+                # print('\n')
     return data
-    
+
+def scans_in_train_json():
+        train_data = []
+        with open('datasets/r2r/data/train.json') as f:
+            # for line in f:
+                # print('for line in f: \n')
+                # print(type(line) )
+                # item = dict(json.loads(line))
+            data_list = json.loads(f.read())
+            # print (data)
+            for item in data_list: #! item is a dict
+                # print (item)
+                # print ('\n')
+                # print (type(item))
+                for instruction in item["instructions"]:
+                    all_instructions = ""
+                    instruction = instruction.lower() #! modified
+                    all_instructions += instruction
+                    item.update(instructions= all_instructions)
+                train_data.append(item)
+        # train_data = load_datasets(["train"])
+        scans_in_train_json = []
+        for item in train_data:
+            scans_in_train_json.append(item["scan"])
+        random.shuffle(scans_in_train_json)
+        return scans_in_train_json
+
+ 
 
 def set_tb_logger(log_dir, resume):
     """ Set up tensorboard logger"""
@@ -139,16 +186,20 @@ def set_tb_logger(log_dir, resume):
     return SummaryWriter(log_dir=log_dir)
 
 
-def load_nav_graph(opts):
-    scans = get_scans()
-    graphs = []
-    for scan in scans:
-        with open("datasets/r2r/graph/links_orar/%slinks.txt" % scan) as f: #! hard coded the path since we just want r2r
+def load_nav_graph(opts, scan_id):
+    with open("datasets/r2r/graph/links_orar/links_%s.txt" % scan_id) as f: #! hard coded the path since we just want r2r
             G = nx.Graph()
             for line in f:
                 pano_1, _, pano_2 = line.strip().split(",")
                 G.add_edge(pano_1, pano_2)     
-            print ("G :\n", G) 
+            # print ("G :\n", G) 
+    return G 
+
+def load_all_nav_graphs(opts):
+    scans = get_scans()
+    graphs = []
+    for scan in scans:
+            G = load_nav_graph(opts, scan)
             graphs.append(G)
     return graphs
     

@@ -3,7 +3,7 @@ from torch import nn
 
 
 class ORAR(nn.Module):
-    def __init__(self, opts, instr_encoder, image_features=None):
+    def __init__(self, opts, instr_encoder, image_features=None): #! image_features is a list
         super(ORAR, self).__init__()
         self.opts = opts
         self.instr_encoder = instr_encoder
@@ -16,27 +16,33 @@ class ORAR(nn.Module):
         rnn1_input_size = 16
 
         if opts.config.use_image_features:
-            img_feature_shape = image_features.get('feature_shape', None)
+            img_feature_shape = []
+            for item in image_features:
+                scan_img_feature_shape = item.get('feature_shape', None)
+                # print('scan_img_feature_shape\n', scan_img_feature_shape[-1])
+                img_feature_shape.append(scan_img_feature_shape)
+                
 
             if self.opts.config.img_feature_dropout > 0:
                 self.img_feature_dropout = nn.Dropout(p=self.opts.config.img_feature_dropout)
 
-            img_feature_size = img_feature_shape[-1]
-            assert len(img_feature_shape) == 2
-            img_feature_flatten_size = img_feature_shape[0] * img_feature_shape[1]
+            for feat_shape in img_feature_shape:
+                img_feature_size = feat_shape[-1]
+                assert len(feat_shape) == 2
+                img_feature_flatten_size = feat_shape[0] * feat_shape[1]
 
-            if img_feature_flatten_size > 2000:
-                img_lstm_input_size = 2569
-                self.linear_img = nn.Linear(img_feature_flatten_size, 512)
-                self.img_dropout = nn.Dropout(p=self.dropout)
-                self.linear_img_extra = nn.Linear(512, img_lstm_input_size)
-                self.img_dropout_extra = nn.Dropout(p=self.dropout)
-            else:
-                img_lstm_input_size = 64
-                self.linear_img = nn.Linear(img_feature_flatten_size, img_lstm_input_size)
-                self.img_dropout = nn.Dropout(p=self.dropout)
+                if img_feature_flatten_size > 2000:
+                    img_lstm_input_size = 2569
+                    self.linear_img = nn.Linear(img_feature_flatten_size, 512)
+                    self.img_dropout = nn.Dropout(p=self.dropout)
+                    self.linear_img_extra = nn.Linear(512, img_lstm_input_size)
+                    self.img_dropout_extra = nn.Dropout(p=self.dropout)
+                else:
+                    img_lstm_input_size = 64
+                    self.linear_img = nn.Linear(img_feature_flatten_size, img_lstm_input_size)
+                    self.img_dropout = nn.Dropout(p=self.dropout)
 
-            rnn1_input_size += img_lstm_input_size
+                rnn1_input_size += img_lstm_input_size
 
         self.action_embed = nn.Embedding(4, 16)
         if self.opts.config.junction_type_embedding:
@@ -110,18 +116,20 @@ class ORAR(nn.Module):
         rnn_input = []
 
         if self.opts.config.use_image_features:
-            if self.opts.config.img_feature_dropout > 0:
-                image_features = self.img_feature_dropout(image_features)
+            for item in image_features:
 
-            rnn_image_features = image_features.flatten(start_dim=1)
-            rnn_image_features = self.linear_img(rnn_image_features)
-            rnn_image_features = torch.sigmoid(rnn_image_features)
-            rnn_image_features = self.img_dropout(rnn_image_features)
-            if hasattr(self, 'linear_img_extra'):
-                rnn_image_features = self.linear_img_extra(rnn_image_features)
+                if self.opts.config.img_feature_dropout > 0:
+                    item = self.img_feature_dropout(item)
+
+                rnn_image_features = item.flatten(start_dim=1)
+                rnn_image_features = self.linear_img(rnn_image_features)
                 rnn_image_features = torch.sigmoid(rnn_image_features)
-                rnn_image_features = self.img_dropout_extra(rnn_image_features)
-            rnn_input.append(rnn_image_features.unsqueeze(1))
+                rnn_image_features = self.img_dropout(rnn_image_features)
+                if hasattr(self, 'linear_img_extra'):
+                    rnn_image_features = self.linear_img_extra(rnn_image_features)
+                    rnn_image_features = torch.sigmoid(rnn_image_features)
+                    rnn_image_features = self.img_dropout_extra(rnn_image_features)
+                rnn_input.append(rnn_image_features.unsqueeze(1))
 
         action_embedding = self.action_embed(a)  # [batch_size, 1, 16]
         rnn_input.append(action_embedding)
@@ -194,10 +202,11 @@ class ORAR(nn.Module):
         return attn
 
     def _visual_attention(self, text_attn, image_features):
-        image_features = image_features.permute(1, 0, 2)
-        attn, attn_weights = self.visual_attention_layer(query=text_attn,
-                                                         key=image_features,
-                                                         value=image_features)
-        if self.opts.config.use_layer_norm:
-            attn = self.layer_norm_visual_attention(attn)
+        for item in image_features:
+            item = item.permute(1, 0, 2)
+            attn, attn_weights = self.visual_attention_layer(query=text_attn,
+                                                            key=item,
+                                                            value=item)
+            if self.opts.config.use_layer_norm:
+                attn = self.layer_norm_visual_attention(attn)
         return attn

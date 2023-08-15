@@ -86,14 +86,14 @@ for j, scan in enumerate(scans_list):
             assert image_feature.shape == (100, 100)
 
         all_pano_heading_features[panoid] = features_heading
-        all_pano_heading_features_list.append(features_heading)
+        all_pano_heading_features_list.append(all_pano_heading_features)
 
         n_processed += 1
         print(n_processed, 'of', len(graph_list[j].nodes))
 
 
     with open(os.path.join(output_dir, scan +'_resnet_fourth_layer.pickle'), 'wb') as f:
-        pickle.dump(all_pano_heading_features_list[j], f)
+        pickle.dump(all_pano_heading_features, f)
     #
     # pickle.dump(all_pano_heading_features, f)
 

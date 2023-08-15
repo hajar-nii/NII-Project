@@ -1,13 +1,16 @@
-from graph_loader import GraphLoader
+from graph_loader import GraphLoader, get_scan_index
 
 
 class BaseNavigator:
-    graph = None
+    #graph = None
 
     def __init__(self, dataset_dir, scan_id):
-        if BaseNavigator.graphs is None:
+        # graph = None
+        # if BaseNavigator.graph is None:
             # BaseNavigator.graphs = GraphLoader(dataset_dir).construct_graphs() #! list of graphs
-            BaseNavigator.graph = GraphLoader(dataset_dir).construct_single_graph(scan_id) 
+        self.graph = GraphLoader(dataset_dir).construct_single_graph(scan_id)
+        print (f'Graph loaded for scan {scan_id}.') 
+        print ('The graph is \n', self.graph)
 
         self.graph_state = None
         self.prev_graph_state = None
