@@ -19,7 +19,8 @@ class ORAR(nn.Module):
             img_feature_shape = []
             for item in image_features:
                 scan_img_feature_shape = item.get('feature_shape', None)
-                # print('scan_img_feature_shape\n', scan_img_feature_shape[-1])
+                # # print ("In ORAR model shape of scan_img_feature_shape\n")
+                # # print('scan_img_feature_shape\n', scan_img_feature_shape)
                 img_feature_shape.append(scan_img_feature_shape)
                 
 
@@ -31,18 +32,20 @@ class ORAR(nn.Module):
                 assert len(feat_shape) == 2
                 img_feature_flatten_size = feat_shape[0] * feat_shape[1]
 
-                if img_feature_flatten_size > 2000:
-                    img_lstm_input_size = 2569
-                    self.linear_img = nn.Linear(img_feature_flatten_size, 512)
-                    self.img_dropout = nn.Dropout(p=self.dropout)
-                    self.linear_img_extra = nn.Linear(512, img_lstm_input_size)
-                    self.img_dropout_extra = nn.Dropout(p=self.dropout)
-                else:
-                    img_lstm_input_size = 64
-                    self.linear_img = nn.Linear(img_feature_flatten_size, img_lstm_input_size)
-                    self.img_dropout = nn.Dropout(p=self.dropout)
+                # # print ('img_feature_flatten_size', img_feature_flatten_size)
 
-                rnn1_input_size += img_lstm_input_size
+            if img_feature_flatten_size > 2000:
+                img_lstm_input_size = 2569
+                self.linear_img = nn.Linear(img_feature_flatten_size, 512)
+                self.img_dropout = nn.Dropout(p=self.dropout)
+                self.linear_img_extra = nn.Linear(512, img_lstm_input_size)
+                self.img_dropout_extra = nn.Dropout(p=self.dropout)
+            else:
+                img_lstm_input_size = 64
+                self.linear_img = nn.Linear(img_feature_flatten_size, img_lstm_input_size)
+                self.img_dropout = nn.Dropout(p=self.dropout)
+
+            rnn1_input_size += img_lstm_input_size
 
         self.action_embed = nn.Embedding(4, 16)
         if self.opts.config.junction_type_embedding:
@@ -116,28 +119,35 @@ class ORAR(nn.Module):
         rnn_input = []
 
         if self.opts.config.use_image_features:
-            for item in image_features:
+            # for item in image_features:
 
-                if self.opts.config.img_feature_dropout > 0:
-                    item = self.img_feature_dropout(item)
+            if self.opts.config.img_feature_dropout > 0:
+                image_features = self.img_feature_dropout(image_features)
+            
+            # # print ('Before flatten shape of rnn_image_features', image_features.shape)
 
-                rnn_image_features = item.flatten(start_dim=1)
-                rnn_image_features = self.linear_img(rnn_image_features)
+            rnn_image_features = image_features.flatten(start_dim=1)
+            # # print ('In forward method shape of rnn_image_features', rnn_image_features.shape)
+            rnn_image_features = self.linear_img(rnn_image_features)
+            rnn_image_features = torch.sigmoid(rnn_image_features)
+            rnn_image_features = self.img_dropout(rnn_image_features)
+            if hasattr(self, 'linear_img_extra'):
+                rnn_image_features = self.linear_img_extra(rnn_image_features)
                 rnn_image_features = torch.sigmoid(rnn_image_features)
-                rnn_image_features = self.img_dropout(rnn_image_features)
-                if hasattr(self, 'linear_img_extra'):
-                    rnn_image_features = self.linear_img_extra(rnn_image_features)
-                    rnn_image_features = torch.sigmoid(rnn_image_features)
-                    rnn_image_features = self.img_dropout_extra(rnn_image_features)
-                rnn_input.append(rnn_image_features.unsqueeze(1))
+                rnn_image_features = self.img_dropout_extra(rnn_image_features)
+            rnn_input.append(rnn_image_features.unsqueeze(1))
 
         action_embedding = self.action_embed(a)  # [batch_size, 1, 16]
+        # print ('action_embedding shape', action_embedding.shape)
+        # print ('shape should be [batch_size, 1, 16]')
         rnn_input.append(action_embedding)
         if self.opts.config.junction_type_embedding:
             junction_type_embedding = self.junction_type_embed(junction_types).unsqueeze(1)  # [batch_size, 1, 16]
             rnn_input.append(junction_type_embedding)
         if self.opts.config.heading_change:
             rnn_input.append(heading_changes)  # [batch_size, 1, 1]
+            # print ('heading_changes shape\n', heading_changes.shape)
+            # print ('heading_changes shape should be [batch_size, 1, 1]\n')
 
 
         s_t = torch.cat(rnn_input, dim=2)
@@ -151,27 +161,44 @@ class ORAR(nn.Module):
 
 
         rnn2_input = [trajectory_hidden_state.squeeze(0)]  # [batch_size, 256]
+        # print ('trajectory_hidden_state shape\n', trajectory_hidden_state.shape)
+        # print ('trajectory_hidden_state should be [batch_size, 256]\n')
 
         if self.opts.config.use_text_attention:
             text_attn = self._text_attention(trajectory_hidden_state, text_enc_outputs, text_enc_lengths)  # [1, batch_size, 256]
             rnn2_input.append(text_attn.squeeze(0))  # [batch_size, 256]
+            # print ('text_attn shape\n', text_attn.shape)
+            # print ('text_attn shape should be [batch_size, 256]\n')
 
         if self.opts.config.use_image_features and self.opts.config.use_image_attention:
             if self.opts.config.use_text_attention:
                 image_attn = self._visual_attention(text_attn, image_features)  # [1, batch_size, 256]
+                # print ('image_attn shape\n', image_attn.shape)
+                # print ('image_attn shape should be [1, batch_size, 256]\n')
             else:
                 #! pas vraiment besoin
                 image_attn = self._visual_attention(trajectory_hidden_state, image_features)  # [1, batch_size, 256]
+                # print ('image_attn shape\n', image_attn.shape)
+                # print ('image_attn shape should be [1, batch_size, 256]\n')
             rnn2_input.append(image_attn.squeeze(0))  # [batch_size, 256]
+            # print ('image_attn shape\n', image_attn.shape)
+            # print ('image_attn shape should be [batch_size, 256]\n')
 
         t = self.time_embed(t)
         batch_size = text_enc_lengths.size(0)
         t_expand = torch.zeros(batch_size, 32).to(self.device)
         t_expand.copy_(t)
         rnn2_input.append(t_expand)  # [batch_size, 32]
+        # print ('t_expandshape\n', t_expand.shape)
+        # print ('t_expand shape should be [batch_size, 32]\n')
 
         rnn2_input = torch.cat(rnn2_input, dim=1)  # [batch_size, 256 + 256 + 256 + 32]
+        # print ('rnn2_input shape\n', rnn2_input.shape)
+        # print   ('rnn2_input shape should be [batch_size, 256 + 256 + 256 + 32]\n')
         action_t, (h2_t, c2_t) = self._forward_policy(rnn2_input, h2_t, c2_t)
+        print (action_t.shape)
+        print ('\n')
+
         return action_t, (h_t, c_t), (h2_t, c2_t)
 
     def _forward_policy(self, policy_input, h2_t, c2_t):
@@ -202,11 +229,11 @@ class ORAR(nn.Module):
         return attn
 
     def _visual_attention(self, text_attn, image_features):
-        for item in image_features:
-            item = item.permute(1, 0, 2)
-            attn, attn_weights = self.visual_attention_layer(query=text_attn,
-                                                            key=item,
-                                                            value=item)
-            if self.opts.config.use_layer_norm:
-                attn = self.layer_norm_visual_attention(attn)
+        # for item in image_features:
+        image_features = image_features.permute(1, 0, 2)
+        attn, attn_weights = self.visual_attention_layer(query=text_attn,
+                                                        key=image_features,
+                                                        value=image_features)
+        if self.opts.config.use_layer_norm:
+            attn = self.layer_norm_visual_attention(attn)
         return attn

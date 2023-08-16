@@ -91,7 +91,7 @@ def get_scans():
     with open('datasets/r2r/scans.txt') as f: # works fine 
         scans = [scan.strip() for scan in f.readlines()]
         # print ("scans :", scans)
-        print(len(scans))
+        # print(len(scans))
     return scans
 
 def get_scan_index(scan):
@@ -146,9 +146,9 @@ def load_datasets(splits, opts=None):
                 # print('\n')
     return data
 
-def scans_in_train_json():
+def scans_in_split_json(split):
         train_data = []
-        with open('datasets/r2r/data/train.json') as f:
+        with open('datasets/r2r/data/%s.json' % split)  as f:
             # for line in f:
                 # print('for line in f: \n')
                 # print(type(line) )

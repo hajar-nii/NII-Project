@@ -67,7 +67,7 @@ class GraphLoader:
 
         print('graphs constructed')
         # print('Graph list is :', self.graph_list)
-        print ("Length of graph list is :", len(self.graph_list)) #prints 90
+        # print ("Length of graph list is :", len(self.graph_list)) #prints 90
 
         return self.graph_list
 

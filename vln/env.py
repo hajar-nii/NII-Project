@@ -9,12 +9,13 @@ import torch
 from pyxdameraulevenshtein import damerau_levenshtein_distance as edit_dis
 
 from base_navigator import BaseNavigator
-from utils import load_datasets, load_nav_graph, get_scans, get_scan_index, scans_in_train_json
+from utils import load_datasets, load_nav_graph, get_scans, get_scan_index, scans_in_split_json
 
 _SUCCESS_THRESHOLD = 2
 
 
-scans_in_train_json = scans_in_train_json()
+scans_in_train_json = scans_in_split_json('train')
+scans_in_val_json = scans_in_split_json('val_seen')
 
 
 
@@ -52,7 +53,7 @@ def load_features (features_dir, features_name):
 
 
 class EnvBatch:
-    def __init__(self, opts, image_features, batch_size=10, name=None, tokenizer=None):
+    def __init__(self, opts, splits, image_features, batch_size=10, name=None, tokenizer=None):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.opts = opts
         self.name = name
@@ -62,15 +63,24 @@ class EnvBatch:
         self.batch_scans = []
         # self.all_img_features = []
 
+        self.split = splits[0]
+
         self.navs = []
         print("=====Initializing %s navigators=====" % self.name)
         for i in range(batch_size):  # tqdm(range(batch_size)):
             # rand_scan = random.randint(0, 89)
             #TODO: when doing random, check that there are no doubles in navs
             
-            self.batch_scans.append(scans_in_train_json[i])
-            nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[i])
-            self.navs.append(nav)
+            if self.split == 'train':
+                self.batch_scans.append(scans_in_train_json[i])
+                nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[i])
+                self.navs.append(nav)
+
+            elif self.split == 'val_seen':
+                self.batch_scans.append(scans_in_val_json[i])
+                nav = BaseNavigator(self.opts.dataset_dir, scans_in_val_json[i])
+                self.navs.append(nav)
+
         print("=====================================")
 
         # self.all_img_features.append(self.image_features[0])
@@ -84,20 +94,20 @@ class EnvBatch:
         """ Iteratively initialize the simulators for # of batchsize"""
         print ("Starting a new episode \n")
         for i, (panoId, heading) in enumerate(zip(pano_ids, headings)):
-            print ("i \n", i)
-            print ("panoId \n", panoId)
-            print ("heading \n", heading)
-            print ("navs[i].scan_id \n", self.navs[i].scan_id)
+            # print ("i \n", i)
+            # print ("panoId \n", panoId)
+            # print ("heading \n", heading)
+            # print ("navs[i].scan_id \n", self.navs[i].scan_id)
             self.navs[i].graph_state = (panoId, heading)
             self.navs[i].initial_pano_id = panoId
-        print ("finished loading graph_state \n")
+        # print ("finished loading graph_state \n")
 
     def get_nearest_heading(self, nav, pano,  heading):
         """ Get the nearest heading in the graph given the heading"""
         # pano, _ = nav.graph_state
-        print ("inside get_nearest_heading \n")
-        print ("actual nav is for scan \n", nav.scan_id)
-        print ("nav.graph.nodes[pano]: \n", nav.graph.nodes[pano])
+        # print ("inside get_nearest_heading \n")
+        # print ("actual nav is for scan \n", nav.scan_id)
+        # print ("nav.graph.nodes[pano]: \n", nav.graph.nodes[pano])
         neighbors = nav.graph.nodes[pano].neighbors
         headings = [n for n in neighbors.keys()]
         nearest_heading = min(headings, key=lambda x: abs(x - heading))
@@ -108,29 +118,18 @@ class EnvBatch:
         for i in range(batch_size):
             nav = self.navs[i]
             pano, heading_exact = nav.graph_state
-            print ('nav.scan_id \n', nav.scan_id)
-            print ('pano \n', pano)
-            print ('heading exact \n', heading_exact)
             feature_for_scan = self.image_features[get_scan_index(nav.scan_id)]
-            # print('Keys of feature_for_scan\n', feature_for_scan.values())
-            # file = open('./feature_for_scan.txt', 'w+')
-            # file.write(str(feature_for_scan.values()))
-            # file.close()
-            # break
-        #TODO:  l'algo ne trouve pas le heading exact dans le dictionnaire
-        #TODO:  il faut donc trouver le heading le plus proche
-
+            #TODO:  l'algo ne trouve pas le heading exact dans le dictionnaire
+            #TODO:  il faut donc trouver le heading le plus proche
+            #! Done !
             heading = self.get_nearest_heading(nav, pano ,heading_exact)
-            print ('heading after nearest function heading call \n', heading)
-            # print ('heading exact', heading_exact)
             image_feature = feature_for_scan[pano][heading] #! for the actual scan
-            # print ("image feature found, here is it  \n", image_feature)
             imgs.append(image_feature)
-            print ("Iteration number in _get_imgs\n", i)
-
         imgs = np.array(imgs, dtype=np.float32)
+        #  print ("imgs shape \n", imgs.shape)
         if self.opts.config.use_image_features == 'resnet_fourth_layer':
             assert imgs.shape[-1] == 100  # (batch_size, 100, 100)
+            # print ('Getting images from 4th layer\n')
         elif self.opts.config.use_image_features == 'resnet_last_layer':
             assert imgs.shape[-1] == 2048  # (batch_size, 5, 2048)
         elif self.opts.config.use_image_features == 'segmentation':
@@ -180,7 +179,11 @@ class EnvBatch:
             gt_action = 3  # STOP
             return gt_action
         pano_neighbors = nav.graph.nodes[panoid].neighbors
+        # print ("pano neighbors \n", pano_neighbors)
         neighbors_id = [neighbor.panoid for neighbor in pano_neighbors.values()]
+        # print ("neighbors id \n", neighbors_id)
+        # print ("gt next panoid \n", gt_next_panoid)
+        # print ("pano neighbors keys \n", list(pano_neighbors.keys()))
         gt_next_heading = list(pano_neighbors.keys())[neighbors_id.index(gt_next_panoid)]
         delta_heading = (gt_next_heading - heading) % 360
         if delta_heading == 0:
@@ -272,17 +275,20 @@ class EnvBatch:
             gt_traj = item["path"]
             ed = edit_dis(traj, gt_traj)
             ed = 1 - ed / max(len(traj), len(gt_traj))
-            target_list = list(nx.all_neighbors(graph, gt_traj[-1])) + [gt_traj[-1]]
+            # print ("gt_traj[-1] is :\n ", gt_traj[-1])
+            # print ("item is :\n ", item["scan"])
+            # print ("graph is :\n ", graph[item["scan"]])
+            target_list = list(nx.all_neighbors(graph[item["scan"]], gt_traj[-1])) + [gt_traj[-1]]
             if traj[-1] in target_list:
                 success = 1
                 metrics[0] += 1
                 metrics[2] += ed
 
-            metrics[1] += nx.dijkstra_path_length(graph, traj[-1], gt_traj[-1])
+            metrics[1] += nx.dijkstra_path_length(graph[item["scan"]], traj[-1], gt_traj[-1])
             if self.opts.CLS:
-                metrics[3] += self.cal_cls(graph, traj, gt_traj)
+                metrics[3] += self.cal_cls(graph[item["scan"]], traj, gt_traj)
             if self.opts.DTW:
-                dtw_group = self.cal_dtw(graph, traj, gt_traj, success)
+                dtw_group = self.cal_dtw(graph[item["scan"]], traj, gt_traj, success)
                 for j in range(-3, 0):
                     metrics[j] += dtw_group[j]
 
@@ -322,7 +328,7 @@ class EnvBatch:
 
 class OutdoorVlnBatch:
     def __init__(self, opts, image_features, batch_size=10, splits=["train"], tokenizer=None, name=None, sample_bpe=False):
-        self.env = EnvBatch(opts, image_features, batch_size, name, tokenizer)
+        self.env = EnvBatch(opts, splits, image_features, batch_size, name, tokenizer)
         #! self.env already has the scan ids (self.env.batch_scans)
         self.opts = opts
 
@@ -335,11 +341,13 @@ class OutdoorVlnBatch:
 
         self.data = None
 
-        self.graph = []
+        self.graph = {}
         self.minibatch_scans = []
 
-        print ("Iniitializing Outdoor VLN Batch:\n ")
-        print (self.env.batch_scans)
+        self.split = splits[0]
+
+        # print ("Iniitializing Outdoor VLN Batch:\n ")
+        # print (self.env.batch_scans)
       
         self.reset_epoch()
 
@@ -350,7 +358,18 @@ class OutdoorVlnBatch:
         data = []
         tokenizer = self.tokenizer
         for i, item in enumerate(self.json_data):
-            if item["scan"] in scans_in_train_json:
+            if self.split == "train":
+                if item["scan"] in self.env.batch_scans:
+                    instr = item["instructions"]
+                    if self.sample_bpe:
+                        _encoder_input = tokenizer.encode(instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
+                    else:
+                        _encoder_input = tokenizer.encode(instr)
+                    _encoder_input.append(tokenizer.eos_id())
+                    _encoder_input.insert(0, tokenizer.bos_id())
+                    item["instr_encoding"] = _encoder_input
+                    data.append(item)
+            else:
                 instr = item["instructions"]
                 if self.sample_bpe:
                     _encoder_input = tokenizer.encode(instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
@@ -360,6 +379,7 @@ class OutdoorVlnBatch:
                 _encoder_input.insert(0, tokenizer.bos_id())
                 item["instr_encoding"] = _encoder_input
                 data.append(item)
+
         # print("******************************************\n")
         # print ("data length is :\n ", len(data)) #! data length is 265
         return data
@@ -367,10 +387,8 @@ class OutdoorVlnBatch:
     def _load_nav_graph(self):
         for scan_id in self.env.batch_scans:
             graph_tmp = load_nav_graph(self.opts, scan_id) #! loads only necessary graphs
-            self.graph.append(graph_tmp)
+            self.graph[scan_id] = graph_tmp
         print("Loading navigation graphs done.")
-
-   
 
     #! Train.json doesn't have all scans 
     def _next_minibatch(self):
@@ -397,15 +415,16 @@ class OutdoorVlnBatch:
             # batch.append(items_for_scan[0])
         # print ("len(batch) :\n ", len(batch))
         
-        # print ("Scans of the mini batch :\n ", batch.scans)
+        # print ("Scans of the mini batch :\n ", batch)
         assert len(batch) == self.batch_size
         assert self.env.batch_scans== self.minibatch_scans
 
-        print ("Both navs-scans and minibatch_scans are equal\n ")
+        # print ("Both navs-scans and minibatch_scans are equal\n ")
         # batch = self.data[self.ix:self.ix+self.batch_size]
         # batch = self.data[0:self.batch_size] not working either
         # self.ix += self.batch_size
         self.batch = batch
+        self.minibatch_scans = []
         # print ("batch size:\n ", len(self.batch))
         # print ("batch :\n ", self.batch)
         
@@ -451,5 +470,9 @@ class OutdoorVlnBatch:
         random.shuffle(self.data)
             
     def eva_metrics(self, trajs, metrics):
-        for graph in self.graph:
-            self.env._eva_metrics(trajs, self.batch, graph, metrics)
+        # print("Evaluating metrics...")
+        # print ("self.graph.keys is :\n ", self.graph.keys())
+        # for graph_key in self.graph.keys():
+        #     print ("graph's id  is :\n ", graph_key)
+        #     print("graph value is \n", self.graph[graph_key])
+        self.env._eva_metrics(trajs, self.batch, self.graph, metrics)

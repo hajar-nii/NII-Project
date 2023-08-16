@@ -22,7 +22,7 @@ parser.add_argument('--store_ckpt_every_epoch', default=False, type=bool)
 parser.add_argument('--test', default=False, type=bool, help='No training. Resume from a model and run testing.')
 parser.add_argument('--oracle', default='', type=str, help='e.g.: "rs". r=orientation; i=intersections;s=stop')
 parser.add_argument('--seed', default=1234, type=int, help='random seed')
-parser.add_argument('--batch_size', default=3, type=int)
+parser.add_argument('--batch_size', default=2, type=int)
 parser.add_argument('--eval_every_epochs', default=1, type=int, help='How often do we eval the trained model.')
 parser.add_argument('--CLS', default=False, type=bool, help='Calculate CLS when evaluating.')
 parser.add_argument('--DTW', default=False, type=bool, help='calculate DTW when evaluating.')
@@ -54,7 +54,7 @@ def main(opts):
         image_features = load_features(opts.img_feat_dir, features_name=opts.config.use_image_features)
 
     if opts.test:
-        print('if opts.test: == tRUE')
+        print('if opts.test: == True')
         main_test(opts, image_features, tokenizer)
     else:
         print('if opts.test: == False')
@@ -250,6 +250,8 @@ def _load_trainer(opts, train_env, image_features, num_words):
             else:
                 decay.append(param)
         params = [{'params': no_decay, 'weight_decay': 0.}, {'params': decay, 'weight_decay': opts.config.weight_decay}]
+        # params = [{'params': decay, 'weight_decay': opts.config.weight_decay}]
+
         optimizer = torch.optim.AdamW(params, lr=opts.config.learning_rate, weight_decay=0.)
     else:
         print('use Adam optimizer')

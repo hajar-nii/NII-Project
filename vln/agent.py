@@ -46,6 +46,7 @@ class OutdoorVlnAgent(BaseAgent):
         trajs = self.env.reset()  # a batch of the first panoid for each route_panoids
         agent_actions = []
         batch_size = len(self.env.batch)
+        # batch_scans = self.minibatch_scans
 
         seq, seq_lengths= self.get_batch()
         (text_enc_outputs, text_enc_lengths), (first_ht, first_ct) = self.instr_encoder(seq, seq_lengths)  # LSTM encoded hidden states for instructions, [batch_size, 1, 256]
@@ -65,6 +66,8 @@ class OutdoorVlnAgent(BaseAgent):
         total_steps = [0]
         for step in range(self.opts.max_route_len):
             image_features = self.env.get_imgs()
+
+            # print ('image_features in OUTDOOR VLN Agent call\n' ,image_features.shape)
 
             junction_types = self.env.get_junction_type()
             t = t + 1
@@ -86,6 +89,10 @@ class OutdoorVlnAgent(BaseAgent):
             else:
                 gold_actions = self.env.get_gt_action()
                 target_ = gold_actions.masked_fill(ended, value=torch.tensor(4))
+                print ('target_ \n', target_)
+                # print ('policy_output \n', policy_output)
+                # print ('self.criterion(policy_output, target_) \n', self.criterion(policy_output, target_) )
+                # print ('num_act_nav[0] \n', num_act_nav[0])
                 loss += self.criterion(policy_output, target_) * num_act_nav[0]
                 heading_changes = self.env.env.action_step(gold_actions, ended, num_act_nav, trajs, total_steps)
                 a = gold_actions.unsqueeze(1)
