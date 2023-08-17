@@ -168,6 +168,9 @@ class EnvBatch:
 
     def _get_gt_action_i(self, batch, i):
         nav = self.navs[i]
+        print ("Start _get_gt_action_i \n")
+        print ("nav.scan_id \n", nav.scan_id)
+        print ("nav.graph_state \n", nav.graph_state)
         gt_path = batch[i]['path']
         panoid, heading = nav.graph_state
         if panoid not in gt_path:
@@ -179,11 +182,11 @@ class EnvBatch:
             gt_action = 3  # STOP
             return gt_action
         pano_neighbors = nav.graph.nodes[panoid].neighbors
-        # print ("pano neighbors \n", pano_neighbors)
+        print ("pano neighbors \n", pano_neighbors)
         neighbors_id = [neighbor.panoid for neighbor in pano_neighbors.values()]
-        # print ("neighbors id \n", neighbors_id)
-        # print ("gt next panoid \n", gt_next_panoid)
-        # print ("pano neighbors keys \n", list(pano_neighbors.keys()))
+        print ("neighbors id \n", neighbors_id)
+        print ("gt next panoid \n", gt_next_panoid)
+        print ("pano neighbors keys \n", list(pano_neighbors.keys()))
         gt_next_heading = list(pano_neighbors.keys())[neighbors_id.index(gt_next_panoid)]
         delta_heading = (gt_next_heading - heading) % 360
         if delta_heading == 0:

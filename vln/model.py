@@ -163,12 +163,15 @@ class ORAR(nn.Module):
         rnn2_input = [trajectory_hidden_state.squeeze(0)]  # [batch_size, 256]
         # print ('trajectory_hidden_state shape\n', trajectory_hidden_state.shape)
         # print ('trajectory_hidden_state should be [batch_size, 256]\n')
+        # print ('rnn2_input first state\n', rnn2_input)
 
         if self.opts.config.use_text_attention:
             text_attn = self._text_attention(trajectory_hidden_state, text_enc_outputs, text_enc_lengths)  # [1, batch_size, 256]
             rnn2_input.append(text_attn.squeeze(0))  # [batch_size, 256]
             # print ('text_attn shape\n', text_attn.shape)
             # print ('text_attn shape should be [batch_size, 256]\n')
+            # print ('test attention\n', text_attn.squeeze(0))
+            # print ('rnn2_input after text_attn\n', rnn2_input)
 
         if self.opts.config.use_image_features and self.opts.config.use_image_attention:
             if self.opts.config.use_text_attention:
@@ -191,13 +194,18 @@ class ORAR(nn.Module):
         rnn2_input.append(t_expand)  # [batch_size, 32]
         # print ('t_expandshape\n', t_expand.shape)
         # print ('t_expand shape should be [batch_size, 32]\n')
+        # print (' t_expand\n', t_expand)
+
+        # print ('rnn2_input before cat \n', rnn2_input)
 
         rnn2_input = torch.cat(rnn2_input, dim=1)  # [batch_size, 256 + 256 + 256 + 32]
         # print ('rnn2_input shape\n', rnn2_input.shape)
         # print   ('rnn2_input shape should be [batch_size, 256 + 256 + 256 + 32]\n')
+        # print ('rnn2_input after cat\n', rnn2_input)
+            
         action_t, (h2_t, c2_t) = self._forward_policy(rnn2_input, h2_t, c2_t)
-        print (action_t.shape)
-        print ('\n')
+        # print (action_t.shape)
+        # print ('\n')
 
         return action_t, (h_t, c_t), (h2_t, c2_t)
 

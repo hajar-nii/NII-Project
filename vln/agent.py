@@ -89,7 +89,7 @@ class OutdoorVlnAgent(BaseAgent):
             else:
                 gold_actions = self.env.get_gt_action()
                 target_ = gold_actions.masked_fill(ended, value=torch.tensor(4))
-                print ('target_ \n', target_)
+                # print ('target_ \n', target_)
                 # print ('policy_output \n', policy_output)
                 # print ('self.criterion(policy_output, target_) \n', self.criterion(policy_output, target_) )
                 # print ('num_act_nav[0] \n', num_act_nav[0])
@@ -98,6 +98,7 @@ class OutdoorVlnAgent(BaseAgent):
                 a = gold_actions.unsqueeze(1)
             if not num_act_nav[0]:
                 break
+            # break
         loss /= total_steps[0]
         if is_test:
             return None, trajs, agent_actions
