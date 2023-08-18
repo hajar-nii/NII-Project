@@ -10,7 +10,7 @@ class BaseNavigator:
             # BaseNavigator.graphs = GraphLoader(dataset_dir).construct_graphs() #! list of graphs
         self.graph = GraphLoader(dataset_dir).construct_single_graph(scan_id)
         print (f'Graph loaded for scan {scan_id}.') 
-        print ('The graph is \n', self.graph)
+        # print ('The graph is \n', self.graph)
 
         self.graph_state = None
         self.prev_graph_state = None
@@ -44,7 +44,7 @@ class BaseNavigator:
         go_towards: ['forward', 'left', 'right']
         '''
 
-        
+        #! Finished making the adjustements for new graph structure
         if not self.prev_graph_state:
             self.prev_graph_state = self.graph_state
         if go_towards == "stop":

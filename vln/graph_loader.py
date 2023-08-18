@@ -45,6 +45,22 @@ class Graph:
         end_node = self.nodes[end_panoid]
         start_node.neighbors[heading] = end_node
 
+    # def add_edge(self, start_panoid, end_panoid, heading):
+    #     start_node = self.nodes[start_panoid]
+    #     end_node = self.nodes[end_panoid]
+
+    #     if not heading in start_node.neighbors:
+    #         start_node.neighbors[heading] = [end_node]
+    #     else:
+    #         start_node.neighbors[heading].append(end_node)
+    #     # start_node.neighbors.setdefault(heading, []).append(end_node)
+
+    # def get_node_neighbors(self, node):
+    #     neighbors_nodes = sum (node.neighbors.values(), [])
+    #     # neighbors_panoid = [neighbor.panoid for neighbor in neighbors_nodes]
+    #     return neighbors_nodes
+
+        
 
 class GraphLoader:
     def __init__(self, dataset_dir):
@@ -72,7 +88,7 @@ class GraphLoader:
             for panoid in temp_graph.nodes.keys():
                 num_edges += len(temp_graph.nodes[panoid].neighbors)
             
-            print ("Graph constructed is :", temp_graph)
+            # print ("Graph constructed is :", temp_graph)
             self.graph_list.append(temp_graph)
 
         print('graphs constructed')
@@ -81,6 +97,7 @@ class GraphLoader:
 
         return self.graph_list
     
+    #TODO : Rewrite the Construct graphs as to use construct_single_graph
     def construct_single_graph(self, scan_id):
         graph = Graph()
         with open(self.node_file_list[scan_id]) as f:
@@ -99,12 +116,26 @@ class GraphLoader:
 
         return graph
 
+
+
 # if __name__ == '__main__':
-#     # get_scans()
-#     graph_loader = GraphLoader(dataset_dir)
-#     # graph_loader.construct_graphs()
-#     # print ("Graph index of b8cTxDM8gDG  is :", get_scan_index('b8cTxDM8gDG'))
-#     # print ("Graph index of X7HyMhZNoso  is :", get_scan_index('X7HyMhZNoso'))
-#     # print ("Graph index of zsNo4HB9uLZ  is :", get_scan_index('zsNo4HB9uLZ'))
-#     print ( 'Graph for scan b8cTxDM8gDG is :', graph_loader.construct_single_graph('b8cTxDM8gDG'))
+    # get_scans()
+    # graph_loader = GraphLoader(dataset_dir)
+    # # graph_loader.construct_graphs()
+    # # print ("Graph index of b8cTxDM8gDG  is :", get_scan_index('b8cTxDM8gDG'))
+    # # print ("Graph index of X7HyMhZNoso  is :", get_scan_index('X7HyMhZNoso'))
+    # # print ("Graph index of zsNo4HB9uLZ  is :", get_scan_index('zsNo4HB9uLZ'))
+
+   
+    # graph  = graph_loader.construct_single_graph('JmbYfDe2QKZ')
+    # pano_id = "63333423642f49caac4871521e93cc45"
+    # pano_neigbors  = graph.nodes[pano_id].neighbors
+    
+    # # sum = sum (pano_neigbors.values(), [])
+
+    # # neighbors_id = graph.get_node_neighbors_panoid(graph.nodes[pano_id])
+    # # neighbors_id = [neighbor.panoid for neighbor in sum]
+    # # print ("pano_neigbors :", pano_neigbors)
+    # # print ("sum of them is :", sum)
+    # print ("neighbors_id :", neighbors_id)
 

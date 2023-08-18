@@ -123,6 +123,8 @@ class EnvBatch:
             #TODO:  il faut donc trouver le heading le plus proche
             #! Done !
             heading = self.get_nearest_heading(nav, pano ,heading_exact)
+            # print ("pano \n", pano)
+            # print ('heading \n', heading)
             image_feature = feature_for_scan[pano][heading] #! for the actual scan
             imgs.append(image_feature)
         imgs = np.array(imgs, dtype=np.float32)
@@ -145,6 +147,10 @@ class EnvBatch:
             pano, _ = nav.graph_state
 
             num_neighbors = len(nav.graph.nodes[pano].neighbors) #! only one graph
+
+            #! for the new graph structure
+
+            # num_neighbors = len(nav.graph.get_node_neighbors(nav.graph.nodes[pano]))
             if num_neighbors == 3:
                 junction_type = 1
             elif num_neighbors == 4:
@@ -168,9 +174,9 @@ class EnvBatch:
 
     def _get_gt_action_i(self, batch, i):
         nav = self.navs[i]
-        print ("Start _get_gt_action_i \n")
-        print ("nav.scan_id \n", nav.scan_id)
-        print ("nav.graph_state \n", nav.graph_state)
+        # print ("Start _get_gt_action_i \n")
+        # print ("nav.scan_id \n", nav.scan_id)
+        # print ("nav.graph_state \n", nav.graph_state)
         gt_path = batch[i]['path']
         panoid, heading = nav.graph_state
         if panoid not in gt_path:
@@ -181,12 +187,20 @@ class EnvBatch:
         else:
             gt_action = 3  # STOP
             return gt_action
+        
+        # pano_neighbors_nodes = nav.graph.get_node_neighbors(nav.graph.nodes[panoid])
+        # pano_neigbors_dict = nav.graph.nodes[panoid].neighbors
         pano_neighbors = nav.graph.nodes[panoid].neighbors
-        print ("pano neighbors \n", pano_neighbors)
+        # print ("pano neighbors \n", pano_neighbors)
+        # neighbors_id = [neighbor.panoid for neighbor in pano_neighbors.values()]
+        # print ("neighbors id \n", neighbors_id)
+        # print ("gt next panoid \n", gt_next_panoid)
+        # print ("pano neighbors keys \n", list(pano_neighbors.keys()))
+
+        # neighbors_id = [neighbor.panoid for neighbor in pano_neighbors_nodes]
+        
         neighbors_id = [neighbor.panoid for neighbor in pano_neighbors.values()]
-        print ("neighbors id \n", neighbors_id)
-        print ("gt next panoid \n", gt_next_panoid)
-        print ("pano neighbors keys \n", list(pano_neighbors.keys()))
+        # gt_next_heading = list(pano_neigbors_dict.keys())[neighbors_id.index(gt_next_panoid)]
         gt_next_heading = list(pano_neighbors.keys())[neighbors_id.index(gt_next_panoid)]
         delta_heading = (gt_next_heading - heading) % 360
         if delta_heading == 0:
@@ -218,6 +232,7 @@ class EnvBatch:
                     action = action_list[gt_action_index]
             if self.opts.config.oracle_directions:
                 pano, _ = nav.graph_state
+                # if len(nav.graph.get_node_neighbors(nav.graph.nodes[pano])) > 2:
                 if len(nav.graph.nodes[pano].neighbors) > 2:
                     gt_action_index = self._get_gt_action_i(batch, i)
                     if gt_action_index is not None: # agent is still on the gold path

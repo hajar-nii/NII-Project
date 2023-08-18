@@ -173,7 +173,7 @@ def test(opts, image_features, tokenizer):
 
     assert opts.resume, 'The model was not resumed.'
     test_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['test'], tokenizer=tokenizer, name='test')
-    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['dev'], tokenizer=tokenizer, name='eval')
+    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_seen'], tokenizer=tokenizer, name='eval')
     val_metrics = trainer.eval_(epoch, val_env)
     test_metrics = trainer.eval_(epoch, test_env)
     return val_metrics, test_metrics, epoch
