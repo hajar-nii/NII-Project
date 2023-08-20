@@ -173,7 +173,7 @@ def test(opts, image_features, tokenizer):
 
     assert opts.resume, 'The model was not resumed.'
     test_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['test'], tokenizer=tokenizer, name='test')
-    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_seen'], tokenizer=tokenizer, name='eval')
+    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_unseen'], tokenizer=tokenizer, name='eval')
     val_metrics = trainer.eval_(epoch, val_env)
     test_metrics = trainer.eval_(epoch, test_env)
     return val_metrics, test_metrics, epoch
@@ -189,7 +189,7 @@ def train(opts, image_features, tokenizer):
     train_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['train'], tokenizer=tokenizer, name="train", sample_bpe=opts.config.do_sample_bpe)
     trainer = _load_trainer(opts, train_env, image_features, num_words=len(tokenizer))
 
-    val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_seen'], tokenizer=tokenizer, name="val_seen")
+    val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_unseen'], tokenizer=tokenizer, name="val_seen")
 
     print('Start of the loop in train function')
     for epoch in range(opts.start_epoch, opts.config.max_num_epochs + 1):

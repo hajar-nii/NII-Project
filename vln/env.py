@@ -15,7 +15,8 @@ _SUCCESS_THRESHOLD = 2
 
 
 scans_in_train_json = scans_in_split_json('train')
-scans_in_val_json = scans_in_split_json('val_seen')
+scans_in_val_json = scans_in_split_json('val_unseen')
+scans_in_test_json = scans_in_split_json('test')
 
 
 
@@ -76,9 +77,14 @@ class EnvBatch:
                 nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[i])
                 self.navs.append(nav)
 
-            elif self.split == 'val_seen':
+            elif self.split == 'val_unseen':
                 self.batch_scans.append(scans_in_val_json[i])
                 nav = BaseNavigator(self.opts.dataset_dir, scans_in_val_json[i])
+                self.navs.append(nav)
+
+            elif self.split == 'test':
+                self.batch_scans.append(scans_in_test_json[i])
+                nav = BaseNavigator(self.opts.dataset_dir, scans_in_test_json[i])
                 self.navs.append(nav)
 
         print("=====================================")
