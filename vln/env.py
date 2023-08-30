@@ -8,16 +8,18 @@ import torch
 
 from pyxdameraulevenshtein import damerau_levenshtein_distance as edit_dis
 
+from graph_loader import GraphLoader
 from base_navigator import BaseNavigator
 from utils import load_datasets, load_nav_graph, get_scans, get_scan_index, scans_in_split_json
 
 _SUCCESS_THRESHOLD = 2
 
-
+dataset_dir = 'datasets/r2r'
 scans_in_train_json = scans_in_split_json('train')
 scans_in_val_json = scans_in_split_json('val_unseen')
 scans_in_test_json = scans_in_split_json('test')
-
+scans_in_val_seen_json = scans_in_split_json('val_seen')
+scans = get_scans()
 
 
 def load_features_scan(features_dir, features_name, scan_id):
@@ -54,7 +56,7 @@ def load_features (features_dir, features_name):
 
 
 class EnvBatch:
-    def __init__(self, opts, splits, image_features, batch_size=10, name=None, tokenizer=None):
+    def __init__(self, opts, splits, image_features, batch_size=64, name=None, tokenizer=None):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.opts = opts
         self.name = name
@@ -69,24 +71,31 @@ class EnvBatch:
         self.navs = []
         print("=====Initializing %s navigators=====" % self.name)
         for i in range(batch_size):  # tqdm(range(batch_size)):
-            # rand_scan = random.randint(0, 89)
+            
             #TODO: when doing random, check that there are no doubles in navs
             
             if self.split == 'train':
-                self.batch_scans.append(scans_in_train_json[i])
-                nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[i])
-                self.navs.append(nav)
+                rand__index = random.randint(0, len(scans_in_train_json)-1)
+                self.batch_scans.append(scans_in_train_json[rand__index])
+                # nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[rand__index])
+                # nav = BaseNavigator(self.opts.dataset_dir)
+                # self.navs.append(nav)
 
             elif self.split == 'val_unseen':
-                self.batch_scans.append(scans_in_val_json[i])
-                nav = BaseNavigator(self.opts.dataset_dir, scans_in_val_json[i])
-                self.navs.append(nav)
+                rand__index = random.randint(0, len(scans_in_val_json)-1)
+                self.batch_scans.append(scans_in_val_json[rand__index])
+                # nav = BaseNavigator(self.opts.dataset_dir, scans_in_val_json[rand__index])
+                # nav = BaseNavigator(self.opts.dataset_dir)
+                # self.navs.append(nav)
 
             elif self.split == 'test':
-                self.batch_scans.append(scans_in_test_json[i])
-                nav = BaseNavigator(self.opts.dataset_dir, scans_in_test_json[i])
-                self.navs.append(nav)
-
+                rand__index = random.randint(0, len(scans_in_test_json)-1)
+                self.batch_scans.append(scans_in_test_json[rand__index])
+                # nav = BaseNavigator(self.opts.dataset_dir, scans_in_test_json[rand__index])
+                
+               
+            nav = BaseNavigator(self.opts.dataset_dir)
+            self.navs.append(nav)
         print("=====================================")
 
         # self.all_img_features.append(self.image_features[0])
@@ -351,7 +360,7 @@ class EnvBatch:
 
 
 class OutdoorVlnBatch:
-    def __init__(self, opts, image_features, batch_size=10, splits=["train"], tokenizer=None, name=None, sample_bpe=False):
+    def __init__(self, opts, image_features, batch_size=64, splits=["train"], tokenizer=None, name=None, sample_bpe=False):
         self.env = EnvBatch(opts, splits, image_features, batch_size, name, tokenizer)
         #! self.env already has the scan ids (self.env.batch_scans)
         self.opts = opts
@@ -361,6 +370,7 @@ class OutdoorVlnBatch:
 
         self.tokenizer = tokenizer
         self.json_data = load_datasets(splits, opts)
+        # print ("json data length is :\n ", len(self.json_data)) #correct lengths
         self.sample_bpe = sample_bpe
 
         self.data = None
@@ -382,40 +392,43 @@ class OutdoorVlnBatch:
         data = []
         tokenizer = self.tokenizer
         for i, item in enumerate(self.json_data):
-            if self.split == "train":
-                if item["scan"] in self.env.batch_scans:
-                    instr = item["instructions"]
+            # if self.split == "train":
+            #     if item["scan"] in self.env.batch_scans:
+            #         instr = item["instructions"]
+            #         if self.sample_bpe:
+            #             _encoder_input = tokenizer.encode(instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
+            #         else:
+            #             _encoder_input = tokenizer.encode(instr)
+            #         _encoder_input.append(tokenizer.eos_id())
+            #         _encoder_input.insert(0, tokenizer.bos_id())
+            #         item["instr_encoding"] = _encoder_input
+            #         data.append(item)
+            # else:
+                for j , single_instr in enumerate(item["instructions"]):  #! we have 3 instructions per item
+                    new_item = dict(item)
+                    new_item['instr_id'] = '%s_%d' % (item['path_id'], j)
+                    new_item['instructions'] = single_instr
                     if self.sample_bpe:
-                        _encoder_input = tokenizer.encode(instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
+                        _encoder_input = tokenizer.encode(single_instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
                     else:
-                        _encoder_input = tokenizer.encode(instr)
+                        _encoder_input = tokenizer.encode(single_instr)
                     _encoder_input.append(tokenizer.eos_id())
                     _encoder_input.insert(0, tokenizer.bos_id())
-                    item["instr_encoding"] = _encoder_input
-                    data.append(item)
-            else:
-                instr = item["instructions"]
-                if self.sample_bpe:
-                    _encoder_input = tokenizer.encode(instr, enable_sampling=True, alpha=0.3, nbest_size=-1)
-                else:
-                    _encoder_input = tokenizer.encode(instr)
-                _encoder_input.append(tokenizer.eos_id())
-                _encoder_input.insert(0, tokenizer.bos_id())
-                item["instr_encoding"] = _encoder_input
-                data.append(item)
+                    new_item["instr_encoding"] = _encoder_input
+                    data.append(new_item)
 
         # print("******************************************\n")
-        # print ("data length is :\n ", len(data)) #! data length is 265
+        print ("data length is :\n ", len(data)) #! data length is 265
         return data
 
     def _load_nav_graph(self):
-        for scan_id in self.env.batch_scans:
+        for scan_id in scans:
             graph_tmp = load_nav_graph(self.opts, scan_id) #! loads only necessary graphs
             self.graph[scan_id] = graph_tmp
         print("Loading navigation graphs done.")
 
     #! Train.json doesn't have all scans 
-    def _next_minibatch(self):
+    def _next_minibatch_old(self):
         batch = []
         for scan_id in self.env.batch_scans: #! scans may repeat
             # print ("len(self.env.batch_scans) is :\n ", len(self.env.batch_scans)) #! 64
@@ -451,6 +464,13 @@ class OutdoorVlnBatch:
         self.minibatch_scans = []
         # print ("batch size:\n ", len(self.batch))
         # print ("batch :\n ", self.batch)
+
+
+
+    def _next_minibatch(self):
+        batch = self.data[self.ix:self.ix+self.batch_size]
+        self.ix += self.batch_size
+        self.batch = batch    
         
     def get_imgs(self):
         if self.opts.config.use_image_features:
@@ -461,8 +481,16 @@ class OutdoorVlnBatch:
     def get_junction_type(self):
         return self.env._get_junction_type(len(self.batch))
 
+
+    def instantiate_navigators_graphs(self, batch):
+        for i, item in enumerate(batch):
+            scan_id = item["scan"]
+            self.env.navs[i].graph = GraphLoader(dataset_dir).construct_single_graph(scan_id)
+            self.env.navs[i].scan_id = scan_id
+            
     def reset(self):
         self._next_minibatch() # we have all the scans of the batch
+        self.instantiate_navigators_graphs(self.batch)
         pano_ids = []
         headings = []
         trajs = []
@@ -500,3 +528,8 @@ class OutdoorVlnBatch:
         #     print ("graph's id  is :\n ", graph_key)
         #     print("graph value is \n", self.graph[graph_key])
         self.env._eva_metrics(trajs, self.batch, self.graph, metrics)
+
+
+if __name__ == "__main__":
+    common_list = set(scans_in_train_json).intersection(scans_in_val_seen_json)
+    print (common_list)

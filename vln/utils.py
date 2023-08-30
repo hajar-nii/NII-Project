@@ -12,6 +12,8 @@ from tensorboardX import SummaryWriter
 import networkx as nx
 import sentencepiece as spm
 
+import matplotlib.pyplot as plt 
+
 padding_idx = 0
 
 
@@ -120,10 +122,12 @@ def load_tokenizer(opts):
 
 
 def load_datasets(splits, opts=None):
+    
     data = []
     for split in splits:
         assert split in ["train", "test", "val_seen", "val_unseen"]
-        with open('%s/data/%s.json' % (opts.dataset_dir, split)) as f:
+        # with open('%s/data/%s.json' % (opts.dataset_dir, split)) as f:
+        with open('datasets/r2r/data/%s.json' %  split) as f:
             # for line in f:
                 # print('for line in f: \n')
                 # print(type(line) )
@@ -136,11 +140,11 @@ def load_datasets(splits, opts=None):
                 # print (type(item))
                 
                 item["heading"] = (item["heading"] *180.0) / math.pi
-                for instruction in item["instructions"]:
-                    all_instructions = ""
-                    instruction = instruction.lower() #! modified
-                    all_instructions += instruction
-                    item.update(instructions= all_instructions)
+                # for instruction in item["instructions"]:
+                    # all_instructions = []
+                    # instruction = instruction.lower() #! modified
+                    # all_instructions.append(instruction)
+                    # item.update(instructions= all_instructions)
                 data.append(item)
                 # print (item['instructions'])
                 # print('\n')
@@ -186,7 +190,7 @@ def set_tb_logger(log_dir, resume):
     return SummaryWriter(log_dir=log_dir)
 
 
-def load_nav_graph(opts, scan_id):
+def load_nav_graph_old(opts, scan_id):
     with open("datasets/r2r/graph/links_orar/links_%s.txt" % scan_id) as f: #! hard coded the path since we just want r2r
             G = nx.Graph()
             for line in f:
@@ -195,14 +199,42 @@ def load_nav_graph(opts, scan_id):
             # print ("G :\n", G) 
     return G 
 
-def load_all_nav_graphs(opts):
+
+    
+def load_nav_graph(opts, scan_id):
+    ''' Load connectivity graph for each scan '''
+
+    def distance(pose1, pose2):
+        ''' Euclidean distance between two graph poses '''
+        return ((pose1['pose'][3]-pose2['pose'][3])**2\
+          + (pose1['pose'][7]-pose2['pose'][7])**2\
+          + (pose1['pose'][11]-pose2['pose'][11])**2)**0.5
+
+    with open('datasets/r2r/connectivity/%s_connectivity.json' % scan_id) as f:
+        G = nx.Graph()
+        positions = {}
+        data = json.load(f)
+        for i,item in enumerate(data): #for each viewpoint
+            if item['included']:
+                for j,conn in enumerate(item['unobstructed']): #for each neighboring viewpoint (0 is the viewpoint itself)
+                    if conn and data[j]['included']: #if the neighbor is also included in the simulator
+                        positions[item['image_id']] = np.array([item['pose'][3],
+                                item['pose'][7], item['pose'][11]]);
+                        # print ("positions :", positions[item['image_id']])
+                        assert data[j]['unobstructed'][i], 'Graph should be undirected'
+                        G.add_edge(item['image_id'],data[j]['image_id'],weight=distance(item,data[j]))
+        nx.set_node_attributes(G, values=positions, name='position')  
+        # nx.draw(G , with_labels=True)
+        # plt.show()
+    return G
+
+def load_all_nav_graphs_old(opts):
     scans = get_scans()
-    graphs = []
+    graphs = {}
     for scan in scans:
             G = load_nav_graph(opts, scan)
-            graphs.append(G)
+            graphs[scan] = G
     return graphs
-    
     
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -275,6 +307,10 @@ def save_checkpoint(state, is_best_SPD, epoch=-1):
         shutil.copyfile(filename, best_filename)
 
 
+
 if __name__ == "__main__":
     scans = get_scans()
+    # graph = load_nav_graph('gZ6f7yhEvPG')
     # load_tokenizer(opts)
+    
+    load_datasets(["train"])

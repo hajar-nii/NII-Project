@@ -4,18 +4,19 @@ from graph_loader import GraphLoader, get_scan_index
 class BaseNavigator:
     #graph = None
 
-    def __init__(self, dataset_dir, scan_id):
+    def __init__(self, dataset_dir):
         # graph = None
         # if BaseNavigator.graph is None:
             # BaseNavigator.graphs = GraphLoader(dataset_dir).construct_graphs() #! list of graphs
-        self.graph = GraphLoader(dataset_dir).construct_single_graph(scan_id)
-        print (f'Graph loaded for scan {scan_id}.') 
+        # self.graph = GraphLoader(dataset_dir).construct_single_graph(scan_id)
+        self.graph = None
+        # print (f'Graph loaded for scan {scan_id}.') 
         # print ('The graph is \n', self.graph)
 
         self.graph_state = None
         self.prev_graph_state = None
         self.initial_pano_id = None
-        self.scan_id = scan_id
+        self.scan_id = None
      
 
     def navigate(self):

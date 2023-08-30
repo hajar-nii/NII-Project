@@ -92,7 +92,7 @@ def main_train(opts, image_features, tokenizer):
         print('')
 
 
-    print('Just got out of the loop in main_train')
+    # print('Just got out of the loop in main_train')
     # evaluations
     opts.resume = 'SPD_best'
 
@@ -168,7 +168,9 @@ def main_test(opts, image_features, tokenizer):
 
 def test(opts, image_features, tokenizer):
 
-    trainer = _load_trainer(opts, None, image_features, num_words=len(tokenizer))
+    f = open("test_loss.txt", "a")
+    f2 = open("test_eval_loss.txt", "a")
+    trainer = _load_trainer(opts, None, image_features, f, f2, num_words=len(tokenizer))
     epoch = opts.start_epoch - 1
 
     assert opts.resume, 'The model was not resumed.'
@@ -186,12 +188,14 @@ def train(opts, image_features, tokenizer):
     tb_logger = set_tb_logger(log_dir, opts.resume)
     best_SPD, best_TC = float("inf"), 0.0
 
+    train_file = open("train_loss.txt", "a")
+    eval_file = open("eval_loss.txt","a")
     train_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['train'], tokenizer=tokenizer, name="train", sample_bpe=opts.config.do_sample_bpe)
-    trainer = _load_trainer(opts, train_env, image_features, num_words=len(tokenizer))
+    trainer = _load_trainer(opts, train_env, image_features, train_file, eval_file, num_words=len(tokenizer))
 
     val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_unseen'], tokenizer=tokenizer, name="val_seen")
 
-    print('Start of the loop in train function')
+    # print('Start of the loop in train function')
     for epoch in range(opts.start_epoch, opts.config.max_num_epochs + 1):
 
         print('Epoch: ', epoch)
@@ -203,6 +207,7 @@ def train(opts, image_features, tokenizer):
             TC = val_metrics['TC']
             SPD = val_metrics['SPD']
             is_best_SPD = SPD <= best_SPD
+            # is_best_TC = TC >= best_TC
             best_SPD = min(SPD, best_SPD)
             best_TC = max(TC, best_TC)
             print("--> Best dev TC: {}, best dev SPD: {}".format(best_TC, best_SPD))
@@ -220,11 +225,12 @@ def train(opts, image_features, tokenizer):
         
         print('if epoc'+ '%'+'opts.eval_every_epochs == 0: == true')
 
-
+    # f.close()
+    
     print("--> Finished training")
 
 
-def _load_trainer(opts, train_env, image_features, num_words):
+def _load_trainer(opts, train_env, image_features,train_file, eval_file, num_words, ):
     # Build model, optimizers, agent and trainer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('device', device)
@@ -262,7 +268,7 @@ def _load_trainer(opts, train_env, image_features, num_words):
         model, instr_encoder, best_SPD, best_TC = resume_training(opts, model, instr_encoder)
 
     agent = OutdoorVlnAgent(opts, train_env, instr_encoder, model)
-    trainer = OutdoorVlnTrainer(opts, agent, optimizer)
+    trainer = OutdoorVlnTrainer(opts, agent, optimizer, train_file, eval_file)
 
     return trainer
 

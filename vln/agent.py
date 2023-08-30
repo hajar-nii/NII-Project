@@ -85,7 +85,7 @@ class OutdoorVlnAgent(BaseAgent):
                                                                  )
             if is_test:
                 a, heading_changes = self.env.action_select(policy_output, ended, num_act_nav, trajs, total_steps)
-                #agent_actions.append(a)
+                agent_actions.append(a)
             else:
                 gold_actions = self.env.get_gt_action()
                 target_ = gold_actions.masked_fill(ended, value=torch.tensor(4))
@@ -98,7 +98,6 @@ class OutdoorVlnAgent(BaseAgent):
                 a = gold_actions.unsqueeze(1)
             if not num_act_nav[0]:
                 break
-            # break
         loss /= total_steps[0]
         if is_test:
             return None, trajs, agent_actions
