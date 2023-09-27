@@ -32,7 +32,8 @@ class ORAR(nn.Module):
                 assert len(feat_shape) == 2
                 img_feature_flatten_size = feat_shape[0] * feat_shape[1]
 
-                # # print ('img_feature_flatten_size', img_feature_flatten_size)
+                # print ('img_feature_size', img_feature_size) #! 2048
+                # print ('img_feature_flatten_size', img_feature_flatten_size) #! 2048*5
 
             if img_feature_flatten_size > 2000:
                 img_lstm_input_size = 2569
@@ -124,10 +125,10 @@ class ORAR(nn.Module):
             if self.opts.config.img_feature_dropout > 0:
                 image_features = self.img_feature_dropout(image_features)
             
-            # # print ('Before flatten shape of rnn_image_features', image_features.shape)
+            # print ('Before flatten shape of rnn_image_features', image_features.shape)
 
             rnn_image_features = image_features.flatten(start_dim=1)
-            # # print ('In forward method shape of rnn_image_features', rnn_image_features.shape)
+            # print ('In forward method shape of rnn_image_features', rnn_image_features.shape)
             rnn_image_features = self.linear_img(rnn_image_features)
             rnn_image_features = torch.sigmoid(rnn_image_features)
             rnn_image_features = self.img_dropout(rnn_image_features)

@@ -113,7 +113,6 @@ class GraphLoader:
         num_edges = 0
         for panoid in graph.nodes.keys():
             num_edges += len(graph.nodes[panoid].neighbors)
-
         return graph
 
 

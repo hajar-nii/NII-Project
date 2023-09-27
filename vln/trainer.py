@@ -2,6 +2,7 @@ import torch
 from utils import AverageMeter
 import time
 import math
+import json
 
 
 class OutdoorVlnTrainer:
@@ -14,9 +15,6 @@ class OutdoorVlnTrainer:
         self.val_file = val_file
 
     def train(self, epoch, train_env, tb_logger=None):
-        # f = open("train_loss.txt", "a")
-        
-        
         print('Training on {} env ...'.format(train_env.splits[0]))
         print('Learning rate: {}'.format(self.optimizer.param_groups[0]['lr']))
         self.agent.env = train_env
@@ -47,12 +45,13 @@ class OutdoorVlnTrainer:
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\n'.format(
                 epoch, iter_, self.train_iters_epoch, batch_time=batch_time,
                 loss=losses), end='')
-        # self.train_file.write(str(losses.avg) + '\n')     
+        
+        self.train_file.write(str(losses.avg) + '\n')     
         if tb_logger:
             tb_logger.add_scalar('epoch/learning_rate', self.optimizer.param_groups[0]['lr'], epoch)
             tb_logger.add_scalar('epoch/train/loss', losses.avg, epoch)
 
-    def eval_(self, epoch, val_env, tb_logger=None):
+    def eval_(self, epoch, val_env, record_data=False, tb_logger=None):
         phase = val_env.env.name
         print('Evaluating on {} env ...'.format(phase))
    
@@ -63,6 +62,9 @@ class OutdoorVlnTrainer:
         self.agent.env.reset_epoch()
         self.agent.model.eval()
         self.agent.instr_encoder.eval()
+
+
+        self.json_data = []
 
         val_iters_epoch = math.ceil(len(val_env.data) / self.opts.batch_size)
 
@@ -77,13 +79,19 @@ class OutdoorVlnTrainer:
                 losses, trajs, agent_actions = self.agent.rollout(is_test=True)
                 #print_actions(agent_actions)
                 self.agent.env.eva_metrics(trajs, metrics)
+
+                if record_data:
+                    self.agent.env.eval_json_data(self.json_data, trajs)
                 batch_time.update(time.time() - end)
                 end = time.time()
                  
                 print('Epoch: [{0}][{1}/{2}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})'.format(
                     epoch, iter_, val_iters_epoch, batch_time=batch_time))
-            # self.val_file.write(str(losses.avg) + '\n') 
+
+            if record_data:
+                with open("test.json", "a+") as outfile:
+                    json.dump(self.json_data, outfile) 
            
         metrics = [m / len(val_env.data) for m in metrics]
         metrics = [m * 100 if m < 1 else m for m in metrics]

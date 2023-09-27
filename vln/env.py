@@ -64,6 +64,7 @@ class EnvBatch:
         self.tokenizer = tokenizer
         self.scans = get_scans()
         self.batch_scans = []
+        self.distances = {}
         # self.all_img_features = []
 
         self.split = splits[0]
@@ -74,24 +75,24 @@ class EnvBatch:
             
             #TODO: when doing random, check that there are no doubles in navs
             
-            if self.split == 'train':
-                rand__index = random.randint(0, len(scans_in_train_json)-1)
-                self.batch_scans.append(scans_in_train_json[rand__index])
-                # nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[rand__index])
-                # nav = BaseNavigator(self.opts.dataset_dir)
-                # self.navs.append(nav)
+            # if self.split == 'train':
+            #     rand__index = random.randint(0, len(scans_in_train_json)-1)
+            #     self.batch_scans.append(scans_in_train_json[rand__index])
+            #     # nav = BaseNavigator(self.opts.dataset_dir, scans_in_train_json[rand__index])
+            #     # nav = BaseNavigator(self.opts.dataset_dir)
+            #     # self.navs.append(nav)
 
-            elif self.split == 'val_unseen':
-                rand__index = random.randint(0, len(scans_in_val_json)-1)
-                self.batch_scans.append(scans_in_val_json[rand__index])
-                # nav = BaseNavigator(self.opts.dataset_dir, scans_in_val_json[rand__index])
-                # nav = BaseNavigator(self.opts.dataset_dir)
-                # self.navs.append(nav)
+            # elif self.split == 'val_unseen':
+            #     rand__index = random.randint(0, len(scans_in_val_json)-1)
+            #     self.batch_scans.append(scans_in_val_json[rand__index])
+            #     # nav = BaseNavigator(self.opts.dataset_dir, scans_in_val_json[rand__index])
+            #     # nav = BaseNavigator(self.opts.dataset_dir)
+            #     # self.navs.append(nav)
 
-            elif self.split == 'test':
-                rand__index = random.randint(0, len(scans_in_test_json)-1)
-                self.batch_scans.append(scans_in_test_json[rand__index])
-                # nav = BaseNavigator(self.opts.dataset_dir, scans_in_test_json[rand__index])
+            # elif self.split == 'test':
+            #     rand__index = random.randint(0, len(scans_in_test_json)-1)
+            #     self.batch_scans.append(scans_in_test_json[rand__index])
+            #     # nav = BaseNavigator(self.opts.dataset_dir, scans_in_test_json[rand__index])
                 
                
             nav = BaseNavigator(self.opts.dataset_dir)
@@ -108,13 +109,16 @@ class EnvBatch:
     def new_episodes(self, pano_ids, headings):
         """ Iteratively initialize the simulators for # of batchsize"""
         print ("Starting a new episode \n")
+
         for i, (panoId, heading) in enumerate(zip(pano_ids, headings)):
             # print ("i \n", i)
             # print ("panoId \n", panoId)
             # print ("heading \n", heading)
             # print ("navs[i].scan_id \n", self.navs[i].scan_id)
+
             self.navs[i].graph_state = (panoId, heading)
             self.navs[i].initial_pano_id = panoId
+            self.navs[i].headings.append((heading*np.pi)/180)
         # print ("finished loading graph_state \n")
 
     def get_nearest_heading(self, nav, pano,  heading):
@@ -168,10 +172,10 @@ class EnvBatch:
             # num_neighbors = len(nav.graph.get_node_neighbors(nav.graph.nodes[pano]))
             if num_neighbors == 3:
                 junction_type = 1
-            elif num_neighbors == 4:
-                junction_type = 2
-            elif num_neighbors > 4:
-                junction_type = 3
+            # elif num_neighbors == 4:
+            #     junction_type = 2
+            # elif num_neighbors > 4:
+            #     junction_type = 3
             else:
                 junction_type = 0
 
@@ -203,8 +207,7 @@ class EnvBatch:
             gt_action = 3  # STOP
             return gt_action
         
-        # pano_neighbors_nodes = nav.graph.get_node_neighbors(nav.graph.nodes[panoid])
-        # pano_neigbors_dict = nav.graph.nodes[panoid].neighbors
+        
         pano_neighbors = nav.graph.nodes[panoid].neighbors
         # print ("pano neighbors \n", pano_neighbors)
         # neighbors_id = [neighbor.panoid for neighbor in pano_neighbors.values()]
@@ -215,7 +218,6 @@ class EnvBatch:
         # neighbors_id = [neighbor.panoid for neighbor in pano_neighbors_nodes]
         
         neighbors_id = [neighbor.panoid for neighbor in pano_neighbors.values()]
-        # gt_next_heading = list(pano_neigbors_dict.keys())[neighbors_id.index(gt_next_panoid)]
         gt_next_heading = list(pano_neighbors.keys())[neighbors_id.index(gt_next_panoid)]
         delta_heading = (gt_next_heading - heading) % 360
         if delta_heading == 0:
@@ -269,8 +271,17 @@ class EnvBatch:
             heading_changes.append([[heading_change]])
 
             new_pano, new_heading = nav.graph_state
-            if not nav.prev_graph_state[0] == nav.graph_state[0]:
+            
+            if not nav.prev_graph_state[0] == nav.graph_state[0]: #! if the pano changed
+                # print ('PANO ID CHANGED \n')
                 trajs[i].append(new_pano)
+                nav.headings.append(new_heading)
+                # print ("trajs[i] \n", trajs[i])
+                # print ("nav.headings \n", nav.headings)
+                
+                assert len(trajs[i]) == len(nav.headings)
+                
+               
 
             total_steps[0] += 1
         a = np.asarray(a, dtype=np.int64)
@@ -302,20 +313,42 @@ class EnvBatch:
         return dtw_group
 
     def _eva_metrics(self, trajs, batch, graph, metrics):
+
+        self.distances = {}
         for i, item in enumerate(batch):
+            nav_error_margin = 3.0
             success = 0
             traj = trajs[i]
             gt_traj = item["path"]
             ed = edit_dis(traj, gt_traj)
             ed = 1 - ed / max(len(traj), len(gt_traj))
-            # print ("gt_traj[-1] is :\n ", gt_traj[-1])
+            goal  = gt_traj[-1]
+            final_position = traj[-1]
+            current_scan = item["scan"]
+            # for j in range (len(traj)):
+            #     print(len(traj))
+            #     print(item['instr_id'])
+            #     print ("gt_traj[i] is :\n ", traj[j])
             # print ("item is :\n ", item["scan"])
             # print ("graph is :\n ", graph[item["scan"]])
-            target_list = list(nx.all_neighbors(graph[item["scan"]], gt_traj[-1])) + [gt_traj[-1]]
-            if traj[-1] in target_list:
+
+            
+            self.distances[current_scan] = dict(nx.all_pairs_dijkstra_path_length(graph[current_scan]))
+            # print ("self.distances is :\n ", self.distances[current_scan])
+
+            if (self.distances[current_scan][goal][final_position]) < nav_error_margin:
+                # print ("item path id is :\n ", item["path_id"])
+                # print (self.distances[current_scan][goal][final_position])
                 success = 1
                 metrics[0] += 1
                 metrics[2] += ed
+
+            # #? all_neighbors(graph, node) returns all neighbors of the node
+            # target_list = list(nx.all_neighbors(graph[item["scan"]], gt_traj[-1])) + [gt_traj[-1]]
+            # if traj[-1] in target_list:
+            #     success = 1
+            #     metrics[0] += 1
+            #     metrics[2] += ed
 
             metrics[1] += nx.dijkstra_path_length(graph[item["scan"]], traj[-1], gt_traj[-1])
             if self.opts.CLS:
@@ -324,6 +357,27 @@ class EnvBatch:
                 dtw_group = self.cal_dtw(graph[item["scan"]], traj, gt_traj, success)
                 for j in range(-3, 0):
                     metrics[j] += dtw_group[j]
+
+
+    def _eval_json_data(self, json_output, trajs, batch):
+        for i, item in enumerate(batch):
+            traj = trajs[i]
+            nav = self.navs[i]
+            # print ("Will start asserting the truth. Rejoice you mere human!\n")
+            # print (len(traj))
+            # print (len(nav.headings))
+            assert len(traj) == len(nav.headings)
+            trajectory_array = []
+            for j , pano in enumerate(traj):
+                nav_heading_radians = nav.headings[j] * np.pi / 180
+                traj_array_element = [pano, float(nav_heading_radians), 0.0 ]
+                trajectory_array.append(traj_array_element)
+            dict = {
+                "instr_id": item["instr_id"],
+                "trajectory": trajectory_array
+            }
+            json_output.append(dict)
+
 
     def action_step(self, target, ended, num_act_nav, trajs, total_steps):
         action_list = ["forward", "left", "right", "stop"]
@@ -487,6 +541,7 @@ class OutdoorVlnBatch:
             scan_id = item["scan"]
             self.env.navs[i].graph = GraphLoader(dataset_dir).construct_single_graph(scan_id)
             self.env.navs[i].scan_id = scan_id
+            self.env.navs[i].headings = []
             
     def reset(self):
         self._next_minibatch() # we have all the scans of the batch
@@ -529,6 +584,9 @@ class OutdoorVlnBatch:
         #     print("graph value is \n", self.graph[graph_key])
         self.env._eva_metrics(trajs, self.batch, self.graph, metrics)
 
+    def eval_json_data(self, json_output, trajs):
+        self.env._eval_json_data(json_output, trajs, self.batch)
+    
 
 if __name__ == "__main__":
     common_list = set(scans_in_train_json).intersection(scans_in_val_seen_json)

@@ -82,7 +82,7 @@ class OutdoorVlnAgent(BaseAgent):
                                                                  t,
                                                                  h2_t=h2_t,
                                                                  c2_t=c2_t
-                                                                 )
+                                                                )
             if is_test:
                 a, heading_changes = self.env.action_select(policy_output, ended, num_act_nav, trajs, total_steps)
                 agent_actions.append(a)

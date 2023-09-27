@@ -17,6 +17,7 @@ class BaseNavigator:
         self.prev_graph_state = None
         self.initial_pano_id = None
         self.scan_id = None
+        self.headings = []
      
 
     def navigate(self):
@@ -48,8 +49,10 @@ class BaseNavigator:
         #! Finished making the adjustements for new graph structure
         if not self.prev_graph_state:
             self.prev_graph_state = self.graph_state
+            # self.headings.append(self.graph_state[1])
         if go_towards == "stop":
             self.prev_graph_state = self.graph_state
+            # self.headings.append(self.graph_state[1])
             return
         next_panoid, next_heading = self._get_next_graph_state(self.graph_state, go_towards)
 
@@ -58,7 +61,9 @@ class BaseNavigator:
             #print(f'At the border (number of neighbors < 2). Did not go "{go_towards}".')
             return
         self.prev_graph_state = self.graph_state
+        # self.headings.append(self.graph_state[1])
         self.graph_state = (next_panoid, next_heading)
+        # self.headings.append(next_heading)
         
     def _get_next_graph_state(self, curr_state, go_towards):
         '''Get next state without changing the current state.'''

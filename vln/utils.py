@@ -290,7 +290,7 @@ def resume_training(opts, model, instr_encoder):
     return model, instr_encoder, SPD, TC
 
 
-def save_checkpoint(state, is_best_SPD, epoch=-1):
+def save_checkpoint(state, is_best_TC, epoch=-1):
     opts = state['opts']
     weights_dir = os.path.join(opts.output_dir, 'weights')
     filename = os.path.join(weights_dir, 'ckpt.{}.pth.tar'.format(opts.iteration))
@@ -302,8 +302,8 @@ def save_checkpoint(state, is_best_SPD, epoch=-1):
     torch.save(state, filename)
     state['opts'].config = dotdict_config
 
-    if is_best_SPD:
-        best_filename = os.path.join(weights_dir, 'ckpt_model_SPD_best.{}.pth.tar'.format(opts.iteration))
+    if is_best_TC:
+        best_filename = os.path.join(weights_dir, 'ckpt_model_TC_best.{}.pth.tar'.format(opts.iteration))
         shutil.copyfile(filename, best_filename)
 
 

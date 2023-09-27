@@ -20,9 +20,9 @@ parser.add_argument('--img_feat_dir', default='', type=str, help='Path to pre-ca
 parser.add_argument('--resume', default='', type=str, choices=['latest', 'TC_best', 'SPD_best'])
 parser.add_argument('--store_ckpt_every_epoch', default=False, type=bool)
 parser.add_argument('--test', default=False, type=bool, help='No training. Resume from a model and run testing.')
-parser.add_argument('--oracle', default='', type=str, help='e.g.: "rs". r=orientation; i=intersections;s=stop')
+parser.add_argument('--oracle', default='rs', type=str, help='e.g.: "rs". r=orientation; i=intersections;s=stop')
 parser.add_argument('--seed', default=1234, type=int, help='random seed')
-parser.add_argument('--batch_size', default=64, type=int)
+parser.add_argument('--batch_size', default=100, type=int)
 parser.add_argument('--eval_every_epochs', default=1, type=int, help='How often do we eval the trained model.')
 parser.add_argument('--CLS', default=False, type=bool, help='Calculate CLS when evaluating.')
 parser.add_argument('--DTW', default=False, type=bool, help='calculate DTW when evaluating.')
@@ -77,7 +77,7 @@ def main_train(opts, image_features, tokenizer):
         opts.start_epoch = 1
         train(opts, image_features, tokenizer)
 
-        opts.resume = 'SPD_best'
+        opts.resume = 'TC_best'
         val_metrics, test_metrics, epoch = test(opts, image_features, tokenizer)
         val_tcs_from_spd.append(val_metrics['TC'])
         test_tcs_from_spd.append(test_metrics['TC'])
@@ -94,27 +94,27 @@ def main_train(opts, image_features, tokenizer):
 
     # print('Just got out of the loop in main_train')
     # evaluations
-    opts.resume = 'SPD_best'
+    opts.resume = 'TC_best'
 
     # uncomment if you want to run oracle studies after training
-    # print('RUN ORACLE STUDIES')
-    # print('ORIENTATION task only\n')
-    # opts.config['oracle_initial_rotation'] = False
-    # opts.config['oracle_directions'] = True
-    # opts.config['oracle_stopping'] = True
-    # main_test(opts, image_features, tokenizer)
-    # print('\n\n')
-    # print('DIRECTIONS task only\n')
-    # opts.config['oracle_initial_rotation'] = True
-    # opts.config['oracle_directions'] = False
-    # opts.config['oracle_stopping'] = True
-    # main_test(opts, image_features, tokenizer)
-    # print('\n\n')
-    # print('STOPPING task only')
-    # opts.config['oracle_initial_rotation'] = True
-    # opts.config['oracle_directions'] = True
-    # opts.config['oracle_stopping'] = False
-    # main_test(opts, image_features, tokenizer)
+    print('RUN ORACLE STUDIES')
+    print('ORIENTATION task only\n')
+    opts.config['oracle_initial_rotation'] = False
+    opts.config['oracle_directions'] = True
+    opts.config['oracle_stopping'] = True
+    main_test(opts, image_features, tokenizer)
+    print('\n\n')
+    print('DIRECTIONS task only\n')
+    opts.config['oracle_initial_rotation'] = True
+    opts.config['oracle_directions'] = False
+    opts.config['oracle_stopping'] = True
+    main_test(opts, image_features, tokenizer)
+    print('\n\n')
+    print('STOPPING task only')
+    opts.config['oracle_initial_rotation'] = True
+    opts.config['oracle_directions'] = True
+    opts.config['oracle_stopping'] = False
+    main_test(opts, image_features, tokenizer)
 
     print('\n\n\n\n')
     print('MAIN EVALUATION')
@@ -175,9 +175,9 @@ def test(opts, image_features, tokenizer):
 
     assert opts.resume, 'The model was not resumed.'
     test_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['test'], tokenizer=tokenizer, name='test')
-    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_unseen'], tokenizer=tokenizer, name='eval')
+    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_unseen'], tokenizer=tokenizer, name='val_unseen')
     val_metrics = trainer.eval_(epoch, val_env)
-    test_metrics = trainer.eval_(epoch, test_env)
+    test_metrics = trainer.eval_(epoch, test_env, True)
     return val_metrics, test_metrics, epoch
 
 
@@ -190,10 +190,10 @@ def train(opts, image_features, tokenizer):
 
     train_file = open("train_loss.txt", "a")
     eval_file = open("eval_loss.txt","a")
-    train_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['train'], tokenizer=tokenizer, name="train", sample_bpe=opts.config.do_sample_bpe)
+    train_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['train', 'val_seen'], tokenizer=tokenizer, name="train_val_seen", sample_bpe=opts.config.do_sample_bpe)
     trainer = _load_trainer(opts, train_env, image_features, train_file, eval_file, num_words=len(tokenizer))
 
-    val_seen_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=['val_unseen'], tokenizer=tokenizer, name="val_seen")
+    val_env = OutdoorVlnBatch(opts, image_features, batch_size=opts.batch_size, splits=[ 'val_unseen'], tokenizer=tokenizer, name="val_unseen")
 
     # print('Start of the loop in train function')
     for epoch in range(opts.start_epoch, opts.config.max_num_epochs + 1):
@@ -203,11 +203,11 @@ def train(opts, image_features, tokenizer):
         if epoch % opts.eval_every_epochs == 0:
 
             print('if epoc'+ '%'+'opts.eval_every_epochs == 0: == true')
-            val_metrics = trainer.eval_(epoch, val_seen_env, tb_logger=tb_logger)
+            val_metrics = trainer.eval_(epoch, val_env, tb_logger=tb_logger)
             TC = val_metrics['TC']
             SPD = val_metrics['SPD']
             is_best_SPD = SPD <= best_SPD
-            # is_best_TC = TC >= best_TC
+            is_best_TC = TC >= best_TC
             best_SPD = min(SPD, best_SPD)
             best_TC = max(TC, best_TC)
             print("--> Best dev TC: {}, best dev SPD: {}".format(best_TC, best_SPD))
@@ -220,10 +220,10 @@ def train(opts, image_features, tokenizer):
                 'model_state_dict': trainer.agent.model.state_dict(),
                 'instr_encoder_state_dict': trainer.agent.instr_encoder.state_dict()
             })
-            save_checkpoint(ckpt, is_best_SPD, epoch=epoch)
+            save_checkpoint(ckpt, is_best_TC, epoch=epoch)
             print('Right after Saved checkpoint function')
         
-        print('if epoc'+ '%'+'opts.eval_every_epochs == 0: == true')
+        # print('if epoc'+ '%'+'opts.eval_every_epochs == 0: == true')
 
     # f.close()
     
