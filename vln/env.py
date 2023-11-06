@@ -44,6 +44,8 @@ def load_features_scan(features_dir, features_name, scan_id):
     features['feature_shape'] = feature_shape
     return features
 
+#TODO: Use dictionnaries insted of lists!
+
 def load_features (features_dir, features_name):
     features_list = []
     scans = get_scans()
