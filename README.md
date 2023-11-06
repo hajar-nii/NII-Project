@@ -17,8 +17,11 @@ pip install -r requirements.txt
 python vln/main.py --test True --dataset r2r --img_feat_dir 'path_to_features_dir' --config link_to_config --exp_name 4th-to-last --resume SPD_best
 ```
 The `path_to_features_dir` should contain the `resnet_fourth_layer.pickle` and `resnet_last_layer.pickle` file created in the pano preprocessing step.
+
 Configurations are stored in configs/ and different parameters of the model can be adjusted there.
+
 The splits used for training, validation and testing can be adjusted in the vln/main.py. 
+
 After running the code, a test.json file is generated. It contains the model's predictions of the trajectories for each instruction in the test split of the R2R dataset.
 This file is submitted to the R2Rchallenge on EvalAI: https://eval.ai/web/challenges/challenge-page/97/overview. The metrics are computed on the platform then returned in JSON format.
 However, the number of submissions is limited.
